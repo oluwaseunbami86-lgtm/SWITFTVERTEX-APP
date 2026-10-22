@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Delete client - SurveyCo{% endblock %}
+{% block content %}
+<div class="page-header"><h1>Delete client</h1></div>
+<div class="card" style="max-width:480px;">
+    <p>Are you sure you want to delete <strong>{{ client.name }}</strong>? Jobs linked to this client will be kept but unlinked. This cannot be undone.</p>
+    <form method="post">
+        {% csrf_token %}
+        <div class="actions-row">
+            <button type="submit" class="btn" style="background:#a32d2d; color:#fff;">Delete permanently</button>
+            <a href="{% url 'clients:detail' client.pk %}" class="btn">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

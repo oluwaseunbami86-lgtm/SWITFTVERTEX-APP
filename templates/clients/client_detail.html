@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load permission_extras %}
+{% block title %}{{ client.name }} - SurveyCo{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>{{ client.name }}</h1>
+    <div style="display:flex; gap:8px;">
+        {% can request.user 'edit_client' client as may_edit %}
+        {% can request.user 'delete' client as may_delete %}
+        {% if may_edit %}<a href="{% url 'clients:update' client.pk %}" class="btn">Edit client</a>{% endif %}
+        {% if may_delete %}<a href="{% url 'clients:delete' client.pk %}" class="btn" style="color:#a32d2d;">Delete client</a>{% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <p><span class="muted">Type:</span> {{ client.get_client_type_display }}</p>
+    <p><span class="muted">Email:</span> {{ client.email|default:"—" }}</p>
+    <p><span class="muted">Phone:</span> {{ client.phone_number|default:"—" }}</p>
+    <p><span class="muted">Address:</span> {{ client.address|default:"—" }}</p>
+    {% if client.notes %}<p><span class="muted">Notes:</span> {{ client.notes }}</p>{% endif %}
+</div>
+
+<div class="page-header">
+    <h1 style="font-size:15px;">Jobs</h1>
+    {% can request.user 'create' as may_create %}
+    {% if may_create %}<a href="{% url 'jobs:create' %}" class="btn">+ New job</a>{% endif %}
+</div>
+{% if jobs %}
+<table>
+    <thead><tr><th>Job</th><th>Address</th><th>Status</th></tr></thead>
+    <tbody>
+        {% for job in jobs %}
+        <tr onclick="window.location='{% url 'jobs:detail' job.pk %}'" style="cursor:pointer;">
+            <td>{{ job.title }}</td>
+            <td>{{ job.job_address }}</td>
+            <td><span class="badge badge-{{ job.status_color }}">{{ job.get_status_display }}</span></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">No jobs for this client yet.</div>
+{% endif %}
+{% endblock %}

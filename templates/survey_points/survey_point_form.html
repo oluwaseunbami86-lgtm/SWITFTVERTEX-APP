@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Survey coordinates - {{ job.title }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>Survey coordinates - {{ job.title }}</h1></div>
+<p class="muted">Plan number: <strong>{{ job.plan_number }}</strong></p>
+
+<ol class="coordinate-steps" aria-label="Coordinate import steps">
+    <li class="{% if phase == 'entry' %}is-active{% endif %}">1. Select method</li>
+    <li class="{% if phase == 'mapping' %}is-active{% endif %}">2. Configure structure</li>
+    <li class="{% if phase == 'mapping' %}is-active{% endif %}">3. Map fields</li>
+    <li class="{% if phase == 'preview' %}is-active{% endif %}">4. Preview &amp; validate</li>
+    <li class="{% if phase == 'preview' %}is-active{% endif %}">5. Confirm import</li>
+    <li class="{% if phase == 'results' %}is-active{% endif %}">6. Results</li>
+</ol>
+
+{% if phase == "entry" %}
+    <div class="coordinate-tabs" role="tablist" aria-label="Coordinate entry method">
+        <button type="button" class="btn {% if selected_mode == 'manual' %}is-active{% endif %}" data-entry-tab="manual" role="tab" aria-selected="{% if selected_mode == 'manual' %}true{% else %}false{% endif %}">Manual Entry</button>
+        <button type="button" class="btn {% if selected_mode == 'batch' %}is-active{% endif %}" data-entry-tab="batch" role="tab" aria-selected="{% if selected_mode == 'batch' %}true{% else %}false{% endif %}">Batch Import</button>
+    </div>
+
+    <section class="card coordinate-panel" data-entry-panel="manual" {% if selected_mode == "batch" %}hidden{% endif %}>
+        <h2>Manual Entry</h2>
+        <p class="muted">Add one or more points for this plan. Rows can be edited or removed before saving.</p>
+        {% if manual_errors %}
+            <div class="alert alert-error">
+                {% for issue in manual_errors %}<p>Row {{ issue.row }} — {{ issue.message }}</p>{% endfor %}
+            </div>
+        {% endif %}
+        <form method="post" class="coordinate-form" data-manual-form data-max-manual-records="{{ max_manual_records }}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="manual">
+            {{ manual_formset.management_form }}
+            <div class="table-scroll">
+                <table class="coordinate-table">
+                    <thead><tr><th>Pillar/Point Number</th><th>Plan Number</th><th>Easting</th><th>Northing</th><th>Height</th><th>Remove</th></tr></thead>
+                    <tbody data-manual-rows>
+                    {% for form in manual_formset %}
+                        <tr>
+                            {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+                            <td>{{ form.beacon_number }}{{ form.beacon_number.errors }}</td>
+                            <td>{{ job.plan_number }}</td>
+                            <td>{{ form.easting }}{{ form.easting.errors }}</td>
+                            <td>{{ form.northing }}{{ form.northing.errors }}</td>
+                            <td>{{ form.height }}{{ form.height.errors }}</td>
+                            <td class="remove-cell">{{ form.DELETE }}<button type="button" class="btn coordinate-remove" data-remove-row>Remove</button></td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% with empty=manual_formset.empty_form %}
+            <template data-manual-row-template>
+                <tr>
+                    {% for hidden in empty.hidden_fields %}{{ hidden }}{% endfor %}
+                    <td>{{ empty.beacon_number }}</td><td>{{ job.plan_number }}</td>
+                    <td>{{ empty.easting }}</td><td>{{ empty.northing }}</td><td>{{ empty.height }}</td>
+                    <td class="remove-cell">{{ empty.DELETE }}<button type="button" class="btn coordinate-remove" data-remove-row>Remove</button></td>
+                </tr>
+            </template>
+            {% endwith %}
+            <div class="actions-row">
+                <button type="button" class="btn" data-add-row>Add another row</button>
+                <button type="submit" class="btn btn-primary">Save points</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="card coordinate-panel" data-entry-panel="batch" {% if selected_mode != "batch" %}hidden{% endif %}>
+        <h2>Batch Import</h2>
+        <p class="muted">Choose a CSV or Notepad text file. It is limited to {{ max_import_bytes|filesizeformat }} and {{ max_import_records }} records. The file is parsed as text only.</p>
+        {% if upload_error %}<div class="alert alert-error">{{ upload_error }}</div>{% endif %}
+        <form method="post" enctype="multipart/form-data" class="coordinate-form" data-upload-form data-max-bytes="{{ max_import_bytes }}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="upload">
+            <label class="coordinate-drop" data-drop-area>
+                <input type="file" name="coordinate_file" accept=".csv,.txt,text/csv,text/plain" required data-file-input>
+                <strong>Choose a CSV or TXT file</strong>
+                <span>or drag and drop it here</span>
+                <small data-file-name>No file selected</small>
+            </label>
+            <button type="submit" class="btn btn-primary" data-upload-button>Read file and map fields</button>
+        </form>
+    </section>
+{% elif phase == "mapping" %}
+    <section class="card">
+        <h2>Configure file structure and map fields</h2>
+        <p class="muted">Detected {{ detected_row_count }} source row(s). No records have been saved. Check the structure, then assign each source column or line to a survey field.</p>
+        <div class="table-scroll coordinate-source-preview">
+            <table class="coordinate-table">
+                <thead><tr>{% for heading in headers %}<th>{% if heading %}{{ heading }}{% else %}Column {{ forloop.counter }}{% endif %}</th>{% empty %}<th>Text line preview</th>{% endfor %}</tr></thead>
+                <tbody>
+                {% for row in stage.rows|slice:":5" %}
+                    <tr>{% for cell in row %}<td>{{ cell|truncatechars:60 }}</td>{% endfor %}</tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <form method="post" data-mapping-form>
+            {% csrf_token %}
+            <input type="hidden" name="action" value="preview">
+            <input type="hidden" name="configuration" value="" data-mapping-json>
+            <div class="coordinate-field">
+                <label for="file-layout">Record structure</label>
+                <select id="file-layout" data-layout>
+                    <option value="columns" {% if stage.mode_guess == "columns" %}selected{% endif %}>One record per row (columns)</option>
+                    <option value="vertical" {% if stage.mode_guess == "vertical" %}selected{% endif %}>One field per line (vertical records)</option>
+                </select>
+            </div>
+            <div data-column-configuration>
+                <label class="coordinate-check"><input type="checkbox" data-has-header {% if likely_header %}checked{% endif %}> First row contains column headers</label>
+                <p class="muted">If checked, the first row is excluded from the imported data. Uncheck it when that row contains a point.</p>
+                <div class="table-scroll">
+                    <table class="coordinate-table">
+                        <thead><tr><th>Detected column</th><th>Sample</th><th>Assign to</th></tr></thead>
+                        <tbody data-column-mappings></tbody>
+                    </table>
+                </div>
+            </div>
+            <div data-vertical-configuration hidden>
+                <div class="coordinate-field">
+                    <label for="lines-per-record">Lines per record</label>
+                    <input id="lines-per-record" type="number" min="1" max="20" value="4" data-lines-per-record>
+                </div>
+                <p class="muted">Assign the field represented by each line in the record. Leave unused lines as “Do not import”.</p>
+                <div class="table-scroll">
+                    <table class="coordinate-table">
+                        <thead><tr><th>Line within record</th><th>Example value</th><th>Assign to</th></tr></thead>
+                        <tbody data-line-mappings></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="alert alert-warning">Plan number can be mapped from the file. If it is absent, the selected job’s plan number ({{ job.plan_number }}) will be used. Any mapped plan number must match this job.</div>
+            <div class="alert alert-error" data-mapping-error hidden></div>
+            <div class="actions-row">
+                <a class="btn" href="{% url 'survey_points:import_cancel' job.pk %}" data-cancel-import>Choose another file</a>
+                <button type="submit" class="btn btn-primary">Map fields and preview</button>
+            </div>
+        </form>
+        {{ mapping_preview|json_script:"coordinate-stage-data" }}
+        {{ headers|json_script:"coordinate-header-data" }}
+        {{ suggested_mapping|json_script:"coordinate-suggestion-data" }}
+    </section>
+{% elif phase == "preview" %}
+    <section class="card">
+        <h2>Preview and validate</h2>
+        <p class="muted">Review and correct values before confirming. Imports are all-or-nothing; invalid or duplicate rows are never silently skipped.</p>
+        <div class="coordinate-summary">
+            <div><strong>{{ detected_count }}</strong><span>Records detected</span></div>
+            <div><strong data-valid-count>{{ valid_count|default:0 }}</strong><span>Valid records</span></div>
+            <div><strong data-error-count>{{ error_count|default:0 }}</strong><span>Records with errors</span></div>
+            <div><strong data-duplicate-count>{{ duplicate_count|default:0 }}</strong><span>Duplicate records</span></div>
+            <div><strong data-ready-count>{% if import_errors %}0{% else %}{{ detected_count|default:0 }}{% endif %}</strong><span>Ready to import</span></div>
+        </div>
+        {% if import_errors %}
+            <div class="alert alert-error" data-server-errors>
+                <strong>Resolve these validation issues:</strong>
+                <ul>{% for issue in import_errors %}<li>Row {{ issue.row }}{% if issue.field %}, {{ issue.field }}{% endif %}: {{ issue.message }}</li>{% endfor %}</ul>
+            </div>
+        {% endif %}
+        <form method="post" data-confirm-form data-plan-number="{{ job.plan_number }}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="confirm_import">
+            <input type="hidden" name="records_json" value="" data-records-json>
+            <div class="table-scroll">
+                <table class="coordinate-table" data-preview-table>
+                    <thead><tr><th>Source row</th><th>Pillar/Point Number</th><th>Plan Number</th><th>Easting</th><th>Northing</th><th>Height</th><th>Validation</th></tr></thead>
+                    <tbody>
+                    {% for record in records %}
+                        <tr data-preview-row>
+                            <td>{{ forloop.counter }}</td>
+                            <td><input data-field="beacon_number" aria-label="Row {{ forloop.counter }} point number" value="{{ record.beacon_number }}"></td>
+                            <td><input data-field="plan_number" aria-label="Row {{ forloop.counter }} plan number" value="{{ record.plan_number }}"></td>
+                            <td><input data-field="easting" aria-label="Row {{ forloop.counter }} easting" value="{{ record.easting }}"></td>
+                            <td><input data-field="northing" aria-label="Row {{ forloop.counter }} northing" value="{{ record.northing }}"></td>
+                            <td><input data-field="height" aria-label="Row {{ forloop.counter }} height" value="{{ record.height }}"></td>
+                            <td data-row-status>Check required</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <progress class="coordinate-progress" max="{{ records|length }}" value="0" data-import-progress hidden></progress>
+            <div class="actions-row">
+                <a class="btn" href="{% url 'survey_points:import_mapping' job.pk %}">Return to mapping</a>
+                <button type="submit" class="btn btn-primary" data-import-button>Import Records</button>
+            </div>
+        </form>
+        <div class="alert alert-error" data-confirm-errors hidden></div>
+        {{ import_errors|json_script:"coordinate-error-data" }}
+    </section>
+{% else %}
+    <section class="card coordinate-result">
+        <h2>Import complete</h2>
+        <p>{{ imported_count }} survey point(s) were imported for {{ job.plan_number }}. Failed records: 0. No existing records were overwritten.</p>
+        <div class="actions-row">
+            <a class="btn btn-primary" href="{% url 'jobs:detail' job.pk %}">Return to job</a>
+            <a class="btn" href="{% url 'survey_points:create' job.pk %}">Enter more points</a>
+        </div>
+    </section>
+{% endif %}
+<script src="{% static 'js/survey_point_entry.js' %}" defer></script>
+{% endblock %}

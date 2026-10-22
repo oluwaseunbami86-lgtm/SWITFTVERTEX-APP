@@ -1,0 +1,42 @@
+{% extends "auth/base.html" %}
+{% load auth_extras %}
+{% block title %}Create an account - SwiftVertex Geomatics{% endblock %}
+{% block body_class %}signup{% endblock %}
+{% block body %}
+<div class="split">
+    <section class="panel">
+        <div class="panel-inner">
+            {% include "auth/_logo.html" %}
+            <p class="eyebrow">Create an account</p>
+            <h1>Get Started with SwiftVertex</h1>
+            <p class="lede">Join us to access powerful geospatial tools, manage your projects, and get accurate spatial solutions &mdash; anytime, anywhere.</p>
+
+            <form method="post" novalidate data-loading-form>
+                {% csrf_token %}
+                <div class="two">
+                    {% include "auth/_field.html" with field=form.username icon="user" star=True %}
+                    {% include "auth/_field.html" with field=form.full_name icon="user" star=True %}
+                    {% include "auth/_field.html" with field=form.email icon="mail" star=True %}
+                </div>
+                {% include "auth/_field.html" with field=form.phone_number icon="phone" %}
+                {% include "auth/_field.html" with field=form.password1 icon="lock" star=True toggle=True %}
+                {% include "auth/_field.html" with field=form.password2 icon="lock" star=True toggle=True %}
+                <div aria-hidden="true" style="position:absolute;left:-10000px;">
+                    {{ form.website }}
+                </div>
+                {% for e in form.non_field_errors %}<p class="err" role="alert">{{ e }}</p>{% endfor %}
+
+                <button type="submit" class="btn btn-primary" data-loading-text="Creating account&hellip;">Create Account {% auth_icon 'arrow-right' 18 %}</button>
+            </form>
+
+            <div class="or"><span>OR</span></div>
+            <button type="button" class="btn btn-outline" disabled title="Google sign-in isn't configured yet">{% auth_icon 'google' 20 %} Sign up with Google</button>
+
+            <p class="switch">Already have an account? <a class="link" href="{% url 'login' %}">Sign In</a></p>
+        </div>
+        <p class="copy">&copy; 2026 SwiftVertex Geomatics Limited. All rights reserved.</p>
+    </section>
+
+    {% include "auth/_hero_signup.html" %}
+</div>
+{% endblock %}

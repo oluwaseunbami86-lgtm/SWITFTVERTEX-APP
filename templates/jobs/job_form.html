@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} - SurveyCo{% endblock %}
+{% block content %}
+<div class="job-create-layout">
+    <div class="job-form-main">
+        <div class="page-header job-form-header">
+            <div class="job-form-backlink">
+                <a href="{% url 'jobs:list' %}" class="btn btn-ghost btn-small">
+                    <span aria-hidden="true">←</span> Back to jobs
+                </a>
+            </div>
+            <div class="job-form-top-actions">
+                <button type="button" class="btn btn-ghost btn-small">Save Draft</button>
+                <button type="submit" form="job-form" class="btn btn-primary btn-small">Create Job</button>
+            </div>
+        </div>
+
+        <form method="post" id="job-form" class="job-form-shell">
+            {% csrf_token %}
+            {{ form.expected_version }}
+            {% if form.non_field_errors %}<div class="alert alert-error">{{ form.non_field_errors }}</div>{% endif %}
+
+            <div class="job-form-hero">
+                <div class="job-form-hero-icon" aria-hidden="true">◫</div>
+                <div>
+                    <h1>New Job</h1>
+                    <p>Add job details and create a new survey plan.</p>
+                </div>
+            </div>
+
+            <section class="job-form-section">
+                <div class="section-head">
+                    <span class="section-index">1</span>
+                    <div>
+                        <h2>Job Details</h2>
+                        <p>Fill in the basic information about the job.</p>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-field">
+                        {{ form.survey_type.label_tag }}
+                        {{ form.survey_type }}
+                        {% if form.survey_type.errors %}<div class="errorlist">{{ form.survey_type.errors }}</div>{% endif %}
+                    </div>
+                    <div class="form-field">
+                        {{ form.job_type.label_tag }}
+                        {{ form.job_type }}
+                        {% if form.job_type.errors %}<div class="errorlist">{{ form.job_type.errors }}</div>{% endif %}
+                    </div>
+                    <div class="form-field form-field-wide">
+                        {{ form.plan_number.label_tag }}
+                        {{ form.plan_number }}
+                        {% if form.plan_number.errors %}
+                            <div class="errorlist">
+                                <strong>{{ form.plan_number.errors.0 }}</strong>
+                                {% if form.duplicate_job %}<br>Existing record: <a href="{% url 'jobs:detail' form.duplicate_job.pk %}" target="_blank">{{ form.duplicate_job.plan_number }} &mdash; {{ form.duplicate_job.title }}</a> ({{ form.duplicate_job.get_lifecycle_display }}).{% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="form-field form-field-wide">
+                        {{ form.title.label_tag }}
+                        {{ form.title }}
+                        {% if form.title.errors %}<div class="errorlist">{{ form.title.errors }}</div>{% endif %}
+                    </div>
+                    <div class="form-field">
+                        {{ form.client.label_tag }}
+                        {{ form.client }}
+                        {% if form.client.errors %}<div class="errorlist">{{ form.client.errors }}</div>{% endif %}
+                    </div>
+                    <div class="form-field">
+                        {{ form.project.label_tag }}
+                        {{ form.project }}
+                        {% if form.project.errors %}<div class="errorlist">{{ form.project.errors.0 }}</div>{% endif %}
+                    </div>
+                    <div class="form-field form-field-wide">
+                        {{ form.job_date.label_tag }}
+                        {{ form.job_date }}
+                        {% if form.job_date.errors %}<div class="errorlist">{{ form.job_date.errors }}</div>{% endif %}
+                    </div>
+                    <div class="form-field form-field-wide">
+                        <div class="toggle-row">
+                            {{ form.has_reference_number }}
+                            <label for="{{ form.has_reference_number.id_for_label }}">{{ form.has_reference_number.label }}</label>
+                        </div>
+                        <div id="reference-number-field">
+                            {{ form.reference_number.label_tag }}
+                            {{ form.reference_number }}
+                        </div>
+                        {% if form.reference_number.errors %}<div class="errorlist">{{ form.reference_number.errors }}</div>{% endif %}
+                    </div>
+                </div>
+            </section>
+
+            <section class="job-form-section">
+                <div class="section-head">
+                    <span class="section-index">2</span>
+                    <div>
+                        <h2>Location Details</h2>
+                        <p>Provide the location for the survey.</p>
+                    </div>
+                </div>
+                <div class="form-grid location-grid">
+                    <div class="form-field job-address-field">
+                        {{ form.job_address.label_tag }}
+                        {{ form.job_address }}
+                        {% if form.job_address.errors %}<div class="errorlist">{{ form.job_address.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="form-field location-area-combo">
+                        <label for="{{ form.survey_area.id_for_label }}">Area</label>
+                        <div class="area-input-row">
+                            {{ form.survey_area }}
+                            {{ form.area_unit }}
+                        </div>
+                        {% if form.survey_area.errors %}<div class="errorlist">{{ form.survey_area.errors }}</div>{% endif %}
+                        {% if form.area_unit.errors %}<div class="errorlist">{{ form.area_unit.errors }}</div>{% endif %}
+                    </div>
+                </div>
+            </section>
+
+            <section class="job-form-section">
+                <div class="section-head">
+                    <span class="section-index">3</span>
+                    <div>
+                        <h2>Survey Beacons</h2>
+                        <p>Configure the survey points for the job.</p>
+                    </div>
+                </div>
+                {% if formset.non_form_errors %}<div class="alert alert-error">{{ formset.non_form_errors }}</div>{% endif %}
+
+                <div class="beacon-import-card">
+                    <p><strong>Have a file of coordinates?</strong></p>
+                    <p class="muted">Save this job and continue directly to the batch coordinate import. You can import a CSV or TXT file there.</p>
+                    <button type="submit" name="post_action" value="batch_import" class="btn btn-primary">Save job and batch import coordinates</button>
+                </div>
+
+                <div class="beacon-toolbar">
+                    <div class="beacon-count-field">
+                        <label for="number_of_beacons">Number of beacons</label>
+                        <input type="number" id="number_of_beacons" min="1" value="1">
+                    </div>
+                    <button type="button" id="generate-beacons-btn" class="btn btn-outline">Generate rows</button>
+                </div>
+
+                {{ formset.management_form }}
+
+                <div class="table-wrap">
+                    <table id="beacon-table" style="display:none;">
+                        <thead>
+                            <tr><th>Beacon number</th><th>Northing</th><th>Easting</th><th>Height</th><th></th></tr>
+                        </thead>
+                        <tbody id="beacon-rows">
+                            {% for bform in formset %}
+                            <tr class="beacon-row">
+                                {{ bform.id }}
+                                <td>{{ bform.beacon_number }}</td>
+                                <td>{{ bform.northing }}</td>
+                                <td>{{ bform.easting }}</td>
+                                <td>{{ bform.height }}</td>
+                                <td>
+                                    <label class="remove-box">{{ bform.DELETE }} Remove</label>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <p id="no-beacons-msg" class="empty-state" style="{% if formset.forms %}display:none;{% endif %}">
+                    Enter the number of beacons above and click "Generate rows".
+                </p>
+
+                <template id="beacon-row-template">
+                    <tr class="beacon-row">
+                        <td>{{ formset.empty_form.beacon_number }}</td>
+                        <td>{{ formset.empty_form.northing }}</td>
+                        <td>{{ formset.empty_form.easting }}</td>
+                        <td>{{ formset.empty_form.height }}</td>
+                        <td>
+                            <label class="remove-box">{{ formset.empty_form.DELETE }} Remove</label>
+                        </td>
+                    </tr>
+                </template>
+            </section>
+
+            <section class="job-form-section">
+                <div class="section-head">
+                    <span class="section-index">4</span>
+                    <div>
+                        <h2>Required Documents</h2>
+                        <p>Attach the files relevant to this job.</p>
+                    </div>
+                </div>
+                <div class="document-grid">
+                    <div class="document-card">
+                        <label>Copy of the Plan</label>
+                        <small>JPG, JPEG, PNG, PDF · Max 5 MB · Optional</small>
+                        <input type="file" accept=".jpg,.jpeg,.png,.pdf" />
+                    </div>
+                    <div class="document-card">
+                        <label>Letter of Pillar Request</label>
+                        <small>JPG, JPEG, PNG, PDF · Max 5 MB · Optional</small>
+                        <input type="file" accept=".jpg,.jpeg,.png,.pdf" />
+                    </div>
+                    <div class="document-card">
+                        <label>DWG File</label>
+                        <small>DWG, DXF · Max 10 MB · Optional</small>
+                        <input type="file" accept=".dwg,.dxf" />
+                    </div>
+                    <div class="document-card">
+                        <label>Copy of Existing Survey plan</label>
+                        <small>JPG, JPEG, PNG, PDF · Max 5 MB · Optional</small>
+                        <input type="file" accept=".jpg,.jpeg,.png,.pdf" />
+                    </div>
+                    <div class="document-card document-card-wide">
+                        <label>Additional Document</label>
+                        <small>JPG, JPEG, PNG, PDF · Max 5 MB · Optional</small>
+                        <input type="file" accept=".jpg,.jpeg,.png,.pdf" />
+                    </div>
+                </div>
+            </section>
+        </form>
+    </div>
+
+    <aside class="job-form-aside">
+        <div class="job-side-card job-side-primary">
+            <div class="job-side-icon" aria-hidden="true">＋</div>
+            <h3>Create a New Job</h3>
+            <p>Fill in the details below to register a new survey job. You can always edit or update these details later.</p>
+        </div>
+
+        <div class="job-side-card job-side-tips">
+            <div class="tip-header">
+                <span class="tip-bulb" aria-hidden="true">◔</span>
+                <h3>Quick Tips</h3>
+            </div>
+            <ul>
+                <li>Use the correct survey type and job type for accurate processing.</li>
+                <li>Ensure the plan number is unique.</li>
+                <li>Add the client and project to keep your records organised.</li>
+                <li>You can upload supporting documents after creating the job.</li>
+            </ul>
+        </div>
+
+        <div class="job-side-card job-side-help">
+            <div class="help-status" aria-hidden="true">✓</div>
+            <div>
+                <h3>Need help?</h3>
+                <p>Contact the admin team for assistance with job setup or survey types.</p>
+            </div>
+            <button type="button" class="btn btn-outline btn-block">Contact Support</button>
+        </div>
+    </aside>
+</div>
+
+<script>
+(function () {
+    const totalFormsInput = document.querySelector('#id_beacons-TOTAL_FORMS');
+    const rowsBody = document.getElementById('beacon-rows');
+    const table = document.getElementById('beacon-table');
+    const noBeaconsMsg = document.getElementById('no-beacons-msg');
+    const template = document.getElementById('beacon-row-template');
+
+    if (!rowsBody || !template || !totalFormsInput) return;
+
+    function refreshVisibility() {
+        const hasRows = rowsBody.querySelectorAll('tr').length > 0;
+        table.style.display = hasRows ? '' : 'none';
+        noBeaconsMsg.style.display = hasRows ? 'none' : '';
+    }
+
+    function addRow(suggestedNumber) {
+        const index = parseInt(totalFormsInput.value, 10);
+        let html = template.innerHTML.replaceAll('__prefix__', index);
+        const wrapper = document.createElement('tbody');
+        wrapper.innerHTML = html;
+        const row = wrapper.querySelector('tr');
+        const beaconInput = row.querySelector('input[name$="-beacon_number"]');
+        if (beaconInput && suggestedNumber) {
+            beaconInput.value = suggestedNumber;
+        }
+        rowsBody.appendChild(row);
+        totalFormsInput.value = index + 1;
+        refreshVisibility();
+    }
+
+    document.getElementById('generate-beacons-btn')?.addEventListener('click', function () {
+        const n = parseInt(document.getElementById('number_of_beacons').value, 10);
+        if (!n || n < 1) {
+            alert('Enter how many beacons you want to add first.');
+            return;
+        }
+        const startingCount = rowsBody.querySelectorAll('tr').length + 1;
+        for (let i = 0; i < n; i++) {
+            addRow('B' + (startingCount + i));
+        }
+    });
+
+    rowsBody.addEventListener('change', function (e) {
+        if (e.target.matches('input[type="checkbox"][name$="-DELETE"]')) {
+            const row = e.target.closest('tr');
+            if (row) row.style.display = e.target.checked ? 'none' : '';
+        }
+    });
+
+    const hasRefCheckbox = document.querySelector('#id_has_reference_number');
+    const refField = document.getElementById('reference-number-field');
+    function toggleRefField() {
+        if (refField && hasRefCheckbox) {
+            refField.style.display = hasRefCheckbox.checked ? '' : 'none';
+        }
+    }
+    if (hasRefCheckbox) {
+        hasRefCheckbox.addEventListener('change', toggleRefField);
+        toggleRefField();
+    }
+
+    refreshVisibility();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% load static dashboard_extras %}
+{% block title %}Users - SwiftVertex Geomatics{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/users.css' %}?v=profile-avatar-20261021">{% endblock %}
+{% block content %}
+<section class="users-page">
+    <header class="users-heading">
+        <div class="users-title">
+            <div class="users-title-icon" aria-hidden="true">{% icon 'users' 25 %}</div>
+            <div>
+                <h1>Users</h1>
+                <p>Manage system users, roles and access permissions.</p>
+            </div>
+        </div>
+        <a class="users-add-button" href="{% url 'admin:auth_user_add' %}"><span aria-hidden="true">+</span> Add new user</a>
+    </header>
+
+    <div class="users-layout">
+        <main class="users-main">
+            <form method="get" class="users-filters">
+                <label class="users-search">
+                    <span aria-hidden="true">{% icon 'search' 17 %}</span>
+                    <input type="search" name="q" placeholder="Search by name, username or email..." value="{{ query }}">
+                </label>
+                <label class="users-filter-field">Status
+                    <select name="status">
+                        <option value="">All statuses</option>
+                        {% for value, label in status_choices %}<option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                    </select>
+                </label>
+                <label class="users-filter-field">Role
+                    <select name="role">
+                        <option value="">All roles</option>
+                        {% for value, label in role_choices %}<option value="{{ value }}" {% if selected_role == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                    </select>
+                </label>
+                <label class="users-filter-field">Type
+                    <select name="type">
+                        <option value="">All types</option>
+                        <option value="standard" {% if selected_type == "standard" %}selected{% endif %}>Standard users</option>
+                        <option value="super_admin" {% if selected_type == "super_admin" %}selected{% endif %}>Super Admins</option>
+                    </select>
+                </label>
+                <button class="users-filter-button" type="submit">{% icon 'filter' 16 %} Filter</button>
+            </form>
+
+            <nav class="users-segments" aria-label="User groups">
+                <a class="users-segment {% if not selected_segment %}is-active{% endif %}" href="{% url 'accounts:users' %}">
+                    {% icon 'users' 16 %} All users <span>{{ counts.all }}</span>
+                </a>
+                <a class="users-segment {% if selected_segment == 'admins' %}is-active{% endif %}" href="{% url 'accounts:users' %}?segment=admins">
+                    {% icon 'check-circle' 16 %} Admins <span>{{ counts.admins }}</span>
+                </a>
+                <a class="users-segment {% if selected_segment == 'clients' %}is-active{% endif %}" href="{% url 'accounts:users' %}?segment=clients">
+                    {% icon 'user' 16 %} Clients <span>{{ counts.clients }}</span>
+                </a>
+                <a class="users-segment {% if selected_segment == 'pending' %}is-active{% endif %}" href="{% url 'accounts:users' %}?segment=pending">
+                    {% icon 'info' 16 %} Pending <span>{{ counts.pending }}</span>
+                </a>
+            </nav>
+
+            <section class="users-table-card" aria-label="User accounts">
+                {% if users %}
+                <div class="users-table-scroll">
+                    <table class="users-table">
+                        <thead>
+                            <tr><th>User</th><th>Status</th><th>Role</th><th>Last login</th><th>Approved by</th><th>Approved at</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                        {% for account in users %}
+                            <tr class="{% if selected_user.pk == account.pk %}is-selected{% endif %}">
+                                <td>
+                                    <a class="users-person" href="{% url 'accounts:users' %}?selected={{ account.pk }}&amp;q={{ query|urlencode }}&amp;status={{ selected_status|urlencode }}&amp;role={{ selected_role|urlencode }}&amp;type={{ selected_type|urlencode }}&amp;segment={{ selected_segment|urlencode }}">
+                                        <span class="users-avatar {% if account.is_superuser %}is-super{% endif %}">
+                                            {% if account.profile.profile_picture %}
+                                                <img src="{{ account.profile.profile_picture.url }}" alt="">
+                                            {% else %}
+                                                {{ account.get_full_name|default:account.username|first|upper }}
+                                            {% endif %}
+                                        </span>
+                                        <span class="users-person-copy">
+                                            <strong>{{ account.get_full_name|default:account.username }}</strong>
+                                            <small>{{ account.email|default:account.username }}</small>
+                                            <span class="users-role-chip">{% if account.is_superuser %}Super Admin{% else %}{{ account.profile.get_role_display }}{% endif %}</span>
+                                        </span>
+                                    </a>
+                                </td>
+                                <td><span class="users-status status-{{ account.profile.status }}">{{ account.profile.get_status_display }}</span></td>
+                                <td>{% if account.is_superuser %}Super Admin{% else %}{{ account.profile.get_role_display }}{% endif %}</td>
+                                <td>{% if account.last_login %}{{ account.last_login|date:"j M Y" }}<small class="users-cell-sub">{{ account.last_login|date:"H:i" }}</small>{% else %}<span class="users-muted">Never</span>{% endif %}</td>
+                                <td>{% if account.profile.approved_by %}{{ account.profile.approved_by.get_full_name|default:account.profile.approved_by.username }}{% else %}<span class="users-muted">—</span>{% endif %}</td>
+                                <td>{% if account.profile.approved_at %}{{ account.profile.approved_at|date:"j M Y" }}<small class="users-cell-sub">{{ account.profile.approved_at|date:"H:i" }}</small>{% else %}<span class="users-muted">—</span>{% endif %}</td>
+                                <td><a class="users-manage-link" href="{% url 'accounts:users' %}?selected={{ account.pk }}&amp;q={{ query|urlencode }}&amp;status={{ selected_status|urlencode }}&amp;role={{ selected_role|urlencode }}&amp;type={{ selected_type|urlencode }}&amp;segment={{ selected_segment|urlencode }}" aria-label="Manage {{ account.username }}">•••</a></td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <footer class="users-table-footer">Showing {{ users|length }} user{{ users|length|pluralize }}</footer>
+                {% else %}
+                <div class="users-empty">
+                    <span class="users-empty-icon" aria-hidden="true">{% icon 'users' 24 %}</span>
+                    <strong>No users found</strong>
+                    <p>No accounts match these filters. Try changing your search or filters.</p>
+                    <a href="{% url 'accounts:users' %}">Clear filters</a>
+                </div>
+                {% endif %}
+            </section>
+        </main>
+
+        <aside class="users-detail">
+            {% if selected_user %}
+                <div class="users-detail-top">
+                    <span class="users-avatar users-avatar-large {% if selected_user.is_superuser %}is-super{% endif %}">
+                        {% if selected_user.profile.profile_picture %}
+                            <img src="{{ selected_user.profile.profile_picture.url }}" alt="">
+                        {% else %}
+                            {{ selected_user.get_full_name|default:selected_user.username|first|upper }}
+                        {% endif %}
+                    </span>
+                    <div class="users-detail-name">
+                        <h2>{{ selected_user.get_full_name|default:selected_user.username }}</h2>
+                        <span class="users-status status-{{ selected_user.profile.status }}">{{ selected_user.profile.get_status_display }}</span>
+                    </div>
+                    <a class="users-close" href="{% url 'accounts:users' %}" aria-label="Close user details">×</a>
+                </div>
+                <div class="users-detail-role-chip">{% if selected_user.is_superuser %}Super Admin{% else %}{{ selected_user.profile.get_role_display }}{% endif %}</div>
+                <dl class="users-meta">
+                    <div><dt>Email</dt><dd>{{ selected_user.email|default:"Not provided" }}</dd></div>
+                    <div><dt>Username</dt><dd>{{ selected_user.username }}</dd></div>
+                    <div><dt>Phone</dt><dd>{{ selected_user.profile.phone_number|default:"Not provided" }}</dd></div>
+                    <div><dt>Last login</dt><dd>{{ selected_user.last_login|date:"j M Y, H:i"|default:"Never" }}</dd></div>
+                    <div><dt>Approved by</dt><dd>{% if selected_user.profile.approved_by %}{{ selected_user.profile.approved_by.get_full_name|default:selected_user.profile.approved_by.username }}{% else %}—{% endif %}</dd></div>
+                    <div><dt>Approved at</dt><dd>{{ selected_user.profile.approved_at|date:"j M Y, H:i"|default:"—" }}</dd></div>
+                </dl>
+
+                {% if selected_user.pk != request.user.pk %}
+                    {% if not selected_user.is_superuser %}
+                    <section class="users-management-section">
+                        <h3>Role management</h3>
+                        <form method="post" action="{% url 'accounts:user_role' selected_user.pk %}" class="users-action-form">
+                            {% csrf_token %}
+                            <label>Change role
+                                <select name="role" required>
+                                    {% for value, label in role_choices %}{% if value != "super_admin" %}<option value="{{ value }}" {% if selected_user.profile.role == value %}selected{% endif %}>{{ label }}</option>{% endif %}{% endfor %}
+                                </select>
+                            </label>
+                            <label>Linked client <span class="users-field-hint">Required for Client viewer</span>
+                                <select name="client">
+                                    <option value="">Select a client</option>
+                                    {% for client in all_clients %}<option value="{{ client.pk }}" {% if selected_user.profile.client_id == client.pk %}selected{% endif %}>{{ client.name }}</option>{% endfor %}
+                                </select>
+                            </label>
+                            <button class="users-secondary-button" type="submit">Save role</button>
+                        </form>
+                    </section>
+                    {% endif %}
+
+                    <section class="users-management-section">
+                        <h3>Password management</h3>
+                        <form method="post" action="{% url 'accounts:user_password' selected_user.pk %}" class="users-action-form">
+                            {% csrf_token %}
+                            <label>New password <input type="password" name="new_password1" autocomplete="new-password" required></label>
+                            <label>Confirm password <input type="password" name="new_password2" autocomplete="new-password" required></label>
+                            <button class="users-secondary-button" type="submit">Reset password</button>
+                        </form>
+                    </section>
+
+                    <div class="users-action-row">
+                        {% if selected_user.profile.status == "approved" %}
+                        <form method="post" action="{% url 'accounts:user_status' selected_user.pk %}">
+                            {% csrf_token %}<input type="hidden" name="action" value="suspend">
+                            <button class="users-warning-button" type="submit">Suspend</button>
+                        </form>
+                        {% elif selected_user.profile.status == "suspended" %}
+                        <form method="post" action="{% url 'accounts:user_status' selected_user.pk %}">
+                            {% csrf_token %}<input type="hidden" name="action" value="reactivate">
+                            <button class="users-secondary-button" type="submit">Reactivate</button>
+                        </form>
+                        {% endif %}
+                        <form method="post" action="{% url 'accounts:user_delete' selected_user.pk %}" onsubmit="return confirm('Delete this account? This cannot be undone.');">
+                            {% csrf_token %}<button class="users-danger-button" type="submit">Delete user</button>
+                        </form>
+                    </div>
+                {% else %}
+                    <p class="users-self-note">Your own account cannot be managed here.</p>
+                {% endif %}
+            {% else %}
+                <div class="users-detail-placeholder">
+                    <span class="users-empty-icon" aria-hidden="true">{% icon 'user' 24 %}</span>
+                    <strong>Select a user</strong>
+                    <p>Choose a user from the list to view account details and available actions.</p>
+                </div>
+            {% endif %}
+        </aside>
+    </div>
+</section>
+{% endblock %}

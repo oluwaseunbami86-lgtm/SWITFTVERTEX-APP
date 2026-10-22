@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Audit log - SwiftVertex Geomatics{% endblock %}
+{% block content %}
+<div class="page-header"><h1>Audit log</h1><p>Latest 200 events</p></div>
+{% if events %}
+<table>
+    <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Affected item</th><th>Details</th></tr></thead>
+    <tbody>
+    {% for event in events %}
+        <tr>
+            <td>{{ event.timestamp|date:"j M Y H:i" }}</td>
+            <td>{{ event.username|default:"System" }}</td>
+            <td>{{ event.get_action_display }}</td>
+            <td>{{ event.entity_label|default:event.entity_type }}</td>
+            <td>{{ event.description }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}<div class="empty-state">No audit events recorded.</div>{% endif %}
+{% endblock %}

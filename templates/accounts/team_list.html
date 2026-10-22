@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Team / Users - SwiftVertex Geomatics{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Team / Users</h1>
+</div>
+
+{% if users %}
+<table>
+    <thead>
+        <tr><th>Name</th><th>Username</th><th>Role</th><th>Phone</th><th>Email</th></tr>
+    </thead>
+    <tbody>
+        {% for u in users %}
+        <tr>
+            <td>{{ u.get_full_name|default:"—" }}</td>
+            <td>{{ u.username }}</td>
+            <td>
+                {% if u.profile %}
+                    <span class="badge badge-accent">{{ u.profile.get_role_display }}</span>
+                {% else %}
+                    <span class="badge badge-accent">—</span>
+                {% endif %}
+            </td>
+            <td>{% if u.profile %}{{ u.profile.phone_number|default:"—" }}{% else %}—{% endif %}</td>
+            <td>{{ u.email|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">No team members yet.</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,16 @@
+{% load auth_extras %}
+<aside class="hero hero-day{% if hero_photo_url %} has-photo{% endif %}"{% if hero_photo_url %} style="--hero-photo:url('{{ hero_photo_url }}')"{% endif %}>
+    {% include "auth/_hero_art.html" %}
+    <nav class="hero-nav" aria-label="Focus areas">Survey <i>/</i> Map <i>/</i> Analyse <i>/</i> Build</nav>
+    <div class="hero-copy">
+        <span class="rule"></span>
+        <h2>Spatial Intelligence<br>for a <em>Better Tomorrow</em></h2>
+        <p>Accurate data. Smarter decisions.<br>Sustainable development.</p>
+    </div>
+    <ul class="hero-feats">
+        <li>{% auth_icon 'map-pin' 30 %}<span>Surveying<br>&amp; Mapping</span></li>
+        <li>{% auth_icon 'layers' 30 %}<span>GIS &amp; Spatial<br>Analysis</span></li>
+        <li>{% auth_icon 'satellite' 30 %}<span>Remote<br>Sensing</span></li>
+        <li>{% auth_icon 'globe' 30 %}<span>Geospatial<br>Consultancy</span></li>
+    </ul>
+</aside>

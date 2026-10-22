@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Permanently delete document - SwiftVertex{% endblock %}
+{% block content %}
+<div class="page-header"><h1>Permanently delete document</h1></div>
+<div class="card" style="max-width:520px;">
+    <p><strong>{{ doc.filename }}</strong> &mdash; {{ doc.job.plan_number }}</p>
+    <div class="alert alert-error">This permanently destroys the document, <strong>every version</strong> of it and the stored files. It cannot be undone. The audit trail keeps a record that it happened.</div>
+    <form method="post">
+        {% csrf_token %}
+        <label for="confirm_text">Type <code>{{ phrase }}</code> to confirm</label>
+        <input type="text" id="confirm_text" name="confirm_text" autocomplete="off" required style="width:100%;">
+        <div class="actions-row">
+            <button type="submit" class="btn" style="background:#a32d2d; color:#fff;">Permanently delete</button>
+            <a href="{% url 'documents:detail' doc.pk %}" class="btn">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

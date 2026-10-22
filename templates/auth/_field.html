@@ -1,0 +1,11 @@
+{% load auth_extras %}
+<div class="field{% if field.errors %} has-error{% endif %}">
+    <label class="sr-only" for="{{ field.id_for_label }}">{{ field.label }}</label>
+    <div class="input-wrap">
+        <span class="lead">{% auth_icon icon 18 %}</span>
+        {{ field }}
+        {% if field.field.required and star %}<span class="req" aria-hidden="true">*</span>{% endif %}
+        {% if toggle %}<button type="button" class="eye" data-toggle-password aria-label="Show password" aria-pressed="false">{% auth_icon 'eye' 18 %}</button>{% endif %}
+    </div>
+    {% for e in field.errors %}<p class="err" id="{{ field.auto_id }}_err{{ forloop.counter }}" role="alert">{{ e }}</p>{% endfor %}
+</div>

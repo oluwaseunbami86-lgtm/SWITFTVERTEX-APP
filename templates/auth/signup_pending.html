@@ -1,0 +1,16 @@
+{% extends "auth/base.html" %}
+{% block title %}Awaiting approval - SwiftVertex Geomatics{% endblock %}
+{% block body %}
+<div class="split">
+    <section class="panel">
+        <div class="panel-inner">
+            {% include "auth/_logo.html" %}
+            <p class="eyebrow">Registration complete</p>
+            <h1>Your account is awaiting approval</h1>
+            <p class="lede">A Super Admin must approve your account before you can sign in.</p>
+            <p class="switch"><a class="link" href="{% url 'login' %}">Return to sign in</a></p>
+        </div>
+    </section>
+    {% include "auth/_hero_signup.html" %}
+</div>
+{% endblock %}

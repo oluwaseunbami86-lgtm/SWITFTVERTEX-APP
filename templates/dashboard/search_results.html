@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Search - SurveyCo{% endblock %}
+{% block content %}
+<div class="page-header"><h1>Search results for "{{ query }}"</h1></div>
+
+{% if not query %}
+<div class="empty-state">Type something in the search box to look for a job by plan number, date, address, title, or beacon number.</div>
+{% elif jobs %}
+<table>
+    <thead><tr><th>Job</th><th>Plan No.</th><th>Address</th><th>Client</th><th>Date</th><th>Status</th></tr></thead>
+    <tbody>
+        {% for job in jobs %}
+        <tr onclick="window.location='{% url 'jobs:detail' job.pk %}'" style="cursor:pointer;">
+            <td>{{ job.title }}</td>
+            <td>{{ job.plan_number|default:"—" }}</td>
+            <td>{{ job.job_address }}</td>
+            <td>{{ job.client.name|default:"—" }}</td>
+            <td>{{ job.job_date }}</td>
+            <td><span class="badge badge-{{ job.status_color }}">{{ job.get_status_display }}</span></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">No jobs matched "{{ query }}".</div>
+{% endif %}
+{% endblock %}

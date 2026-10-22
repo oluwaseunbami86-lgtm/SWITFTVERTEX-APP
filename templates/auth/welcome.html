@@ -1,0 +1,48 @@
+{% extends "auth/base.html" %}
+{% load auth_extras %}
+{% block title %}SwiftVertex Geomatics Limited - Spatial Intelligence for a Better Tomorrow{% endblock %}
+{% block body_class %}welcome{% endblock %}
+{% block body %}
+<div class="landing{% if hero_photo_url %} has-photo{% endif %}"{% if hero_photo_url %} style="--hero-photo:url('{{ hero_photo_url }}')"{% endif %}>
+    {% include "auth/_hero_art.html" %}
+    {% comment %}
+    <svg class="survey-net" viewBox="0 0 400 260" aria-hidden="true">
+        <polygon points="30,170 120,60 270,50 370,140 290,220 120,230" fill="rgba(60,200,255,.08)" stroke="rgba(80,200,255,.7)" stroke-width="1.2"/>
+        <g stroke="rgba(80,200,255,.35)" stroke-width=".8"><path d="M30 170 270 50M120 60 290 220M120 230 370 140M120 60 120 230M270 50 290 220"/></g>
+        <g fill="#4cc9ff"><circle cx="12<PASSWORD>" cy="6<PASSWORD>" r="4"/><circle cx="27<PASSWORD>" cy="5<PASSWORD>" r="4"/><circle cx="37<PASSWORD>" cy="14<PASSWORD>" r="4"/><circle cx="29<PASSWORD>" cy="22<PASSWORD>" r="4"/><circle cx="12<PASSWORD>" cy="23<PASSWORD>" r="4"/><circle cx="3<PASSWORD>" cy="17<PASSWORD>" r="4"/></g>
+    </svg>
+    {% endcomment %}
+
+    <header class="land-head">
+        {% include "auth/_logo.html" %}
+        <nav class="land-nav" aria-label="Focus areas">Survey <i>/</i> Map <i>/</i> Analyse <i>/</i> Build</nav>
+    </header>
+
+    <main class="land-main">
+        <p class="eyebrow-c">WELCOME TO SWIFTVERTEX</p>
+        <h1>Spatial Intelligence<br>for a <em>Better Tomorrow</em></h1>
+        <p class="sub">Accurate data. Smarter decisions. Sustainable development.</p>
+        <p class="desc">SwiftVertex Geomatics Limited delivers modern surveying, mapping, GIS, remote sensing, and geospatial solutions that transform spatial data into better decisions.</p>
+
+        <div class="cta">
+            <a class="btn btn-primary" href="{% url 'signup' %}">Get Started {% auth_icon 'arrow-right' 18 %}</a>
+            <a class="btn btn-outline" href="{% url 'login' %}">Sign In</a>
+        </div>
+
+        <ul class="services" aria-label="Our services">
+            <li><span class="chip">{% auth_icon 'map-pin' 24 %}</span><span>Surveying<br>&amp; Mapping</span></li>
+            <li><span class="chip">{% auth_icon 'layers' 24 %}</span><span>GIS &amp; Spatial<br>Analysis</span></li>
+            <li><span class="chip">{% auth_icon 'satellite' 24 %}</span><span>Remote<br>Sensing</span></li>
+            <li><span class="chip">{% auth_icon 'globe' 24 %}</span><span>Geospatial<br>Consultancy</span></li>
+        </ul>
+    </main>
+
+    <ul class="strengths" aria-label="Our strengths">
+        <li>{% auth_icon 'crosshair' 28 %}<span>High Accuracy<br>Data</span></li>
+        <li>{% auth_icon 'layers' 28 %}<span>Advanced<br>Technology</span></li>
+        <li>{% auth_icon 'shield-check' 28 %}<span>Trusted<br>&amp; Reliable</span></li>
+        <li>{% auth_icon 'globe' 28 %}<span>Geospatial<br>Excellence</span></li>
+    </ul>
+    <footer class="land-foot">&copy; 2026 SwiftVertex Geomatics Limited. All rights reserved.</footer>
+</div>
+{% endblock %}

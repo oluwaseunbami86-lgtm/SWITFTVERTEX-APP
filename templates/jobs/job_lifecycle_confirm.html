@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ verb|capfirst }} job - SwiftVertex{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ verb|capfirst }} job</h1></div>
+<div class="card" style="max-width:520px;">
+    <p><strong>{{ job.plan_number }}</strong> &mdash; {{ job.title }}</p>
+    {% if action == "archive" %}
+    <p>The job stays in the archive with all its beacons, documents and history, and can be restored at any time. It is read-only while archived.</p>
+    {% elif action == "restore" %}
+    <p>The job becomes active and editable again.</p>
+    {% elif action == "delete" %}
+    <p>The job is removed from all normal lists. Its beacons and documents are kept, and an administrator can still restore it. Nothing is destroyed yet.</p>
+    {% else %}
+    <div class="alert alert-error">This permanently destroys the job, its survey beacons and its uploaded documents. <strong>It cannot be undone.</strong> The audit trail keeps a record that it happened.</div>
+    {% endif %}
+    <form method="post">
+        {% csrf_token %}
+        {% if typed %}
+        <label for="confirm_text">Type <code>{{ phrase }}</code> to confirm</label>
+        <input type="text" id="confirm_text" name="confirm_text" autocomplete="off" required style="width:100%;">
+        {% endif %}
+        <div class="actions-row">
+            <button type="submit" class="btn" {% if danger %}style="background:#a32d2d; color:#fff;"{% else %}style="background:#185fa5; color:#fff;"{% endif %}>{{ verb|capfirst }}</button>
+            <a href="{% url 'jobs:detail' job.pk %}" class="btn">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Documents - SwiftVertex Geomatics{% endblock %}
+{% block content %}
+<div class="document-page">
+    <div class="document-header">
+        <div class="document-heading">
+            <div class="document-heading-icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 3.75A2.75 2.75 0 0 0 4.25 6.5v11A2.75 2.75 0 0 0 7 20.25h10A2.75 2.75 0 0 0 19.75 17.5V9.12a2.75 2.75 0 0 0-.81-1.94l-3.37-3.38A2.75 2.75 0 0 0 13.63 3.75H7Zm7 1.5 2.75 2.75H14.5A.75.75 0 0 1 14 7.25V5.25Zm-7 .75h5.5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-.75.75H7A.75.75 0 0 1 6.25 9V6.75A.75.75 0 0 1 7 6Zm0 4.5h10a.75.75 0 0 1 0 1.5H7a.75.75 0 0 1 0-1.5Zm0 3h7a.75.75 0 0 1 0 1.5H7a.75.75 0 0 1 0-1.5Z" fill="currentColor"/></svg>
+            </div>
+            <div>
+                <h1>Documents</h1>
+                <p>View, search and manage all your project documents.</p>
+            </div>
+        </div>
+        {% if upload_jobs %}
+        <button type="button" class="btn btn-primary document-upload-btn" id="open-upload-dialog" aria-label="Upload document">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 5a1 1 0 1 1 2 0v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H6a1 1 0 1 1 0-2h5V5Z" fill="currentColor"/></svg>
+            Upload Document
+        </button>
+        {% endif %}
+    </div>
+
+    {% if upload_jobs %}
+    <dialog class="document-upload-dialog" id="upload-dialog">
+        <form method="get" action="{% url 'documents:list' %}">
+            <h2>Choose a job</h2>
+            <p>Select the job this document belongs to.</p>
+            <label for="upload-job">Job</label>
+            <select name="upload_job" id="upload-job" required>
+                <option value="">Select a job</option>
+                {% for job in upload_jobs %}
+                <option value="{{ job.pk }}">{{ job.plan_number }} — {{ job.title }}</option>
+                {% endfor %}
+            </select>
+            <div class="document-dialog-actions">
+                <button type="button" class="btn btn-outline" id="close-upload-dialog">Cancel</button>
+                <button type="submit" class="btn btn-primary">Continue</button>
+            </div>
+        </form>
+    </dialog>
+    {% endif %}
+
+    <div class="document-panel">
+        <form method="get" class="document-toolbar">
+            <div class="document-search-wrap">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10.5 4a6.5 6.5 0 0 1 5.13 11.13l4.42 4.42 1.41-1.41-4.42-4.42A6.5 6.5 0 1 1 10.5 4Zm0 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z" fill="currentColor"/></svg>
+                <input type="text" name="q" value="{{ q }}" placeholder="Search by file name, title or plan number...">
+            </div>
+            <label class="filter-field">
+                <span>Type</span>
+                <select name="type" aria-label="Filter by type">
+                    <option value="">All Types</option>
+                    {% for value, label in type_choices %}
+                    <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Version</span>
+                <select name="version" aria-label="Filter by version">
+                    <option value="">All Versions</option>
+                    {% for version_number in versions %}
+                    <option value="{{ version_number }}" {% if selected_version == version_number|stringformat:"s" %}selected{% endif %}>v{{ version_number }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="filter-field">
+                <span>Client</span>
+                <select name="client" aria-label="Filter by client">
+                    <option value="">All Clients</option>
+                    {% for client in clients %}
+                    <option value="{{ client.pk }}" {% if selected_client == client.pk|stringformat:"s" %}selected{% endif %}>{{ client.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button type="submit" class="btn btn-outline document-filter-btn">Filter</button>
+        </form>
+
+        <div class="document-selection-bar">
+            <div class="document-selection-left">
+                <label class="checkbox-toggle">
+                    <input type="checkbox" id="select-all-documents" aria-label="Select all documents">
+                    <span></span>
+                </label>
+                <strong id="selected-document-count" aria-live="polite">0 documents selected</strong>
+                <button type="button" class="selection-clear" id="clear-document-selection">Clear</button>
+            </div>
+            <div class="document-selection-actions">
+                <a class="btn btn-outline small-btn is-disabled" id="download-selected-document" aria-disabled="true">Download</a>
+            </div>
+        </div>
+
+        {% if documents %}
+        <div class="document-table-wrap">
+            <table class="document-table">
+                <thead>
+                    <tr>
+                        <th class="check-col"><input type="checkbox" id="select-all-table" aria-label="Select all documents"></th>
+                        <th>File Name</th>
+                        <th>Type</th>
+                        <th>Version</th>
+                        <th>Job</th>
+                        <th>Client</th>
+                        <th>Uploaded by</th>
+                        <th>Uploaded</th>
+                        <th class="actions-col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in documents %}
+                    <tr>
+                        <td class="check-col"><input type="checkbox" class="document-row-checkbox" data-download-url="{% if doc.current_version %}{% url 'documents:download' doc.current_version.pk %}{% endif %}" aria-label="Select document {{ doc.title|default:doc.filename }}"></td>
+                        <td class="file-cell">
+                            <div class="file-meta">
+                                <div class="file-icon file-icon-{{ doc.doc_type|default:'other' }}">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 2.75A2.75 2.75 0 0 1 16.75 5.5v1.44h1.25c1.24 0 2.25 1.01 2.25 2.25v9.56A2.75 2.75 0 0 1 18.5 21.5h-9A2.75 2.75 0 0 1 6.75 18.75V5.5A2.75 2.75 0 0 1 9.5 2.75h4.5Zm1.5 2.52 2.48 2.48h-2.48a.5.5 0 0 1-.5-.5V5.27Zm-6.5 3.55a.75.75 0 0 0 0 1.5h7.5a.75.75 0 0 0 0-1.5h-7.5Zm0 3.5a.75.75 0 0 0 0 1.5h7.5a.75.75 0 0 0 0-1.5h-7.5Zm0 3.5a.75.75 0 0 0 0 1.5h5a.75.75 0 0 0 0-1.5h-5Z" fill="currentColor"/></svg>
+                                </div>
+                                <div>
+                                    <div class="file-name"><a href="{% url 'documents:detail' doc.pk %}">{{ doc.title|default:doc.filename }}</a></div>
+                                    {% if doc.current_version %}
+                                    <div class="file-meta-small">{{ doc.current_version.size_bytes|filesizeformat }}{% if doc.current_version.extension %} &middot; {{ doc.current_version.extension|upper }}{% endif %}</div>
+                                    {% elif doc.title %}
+                                    <div class="file-meta-small">{{ doc.filename }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="doc-badge doc-badge-{{ doc.doc_type|default:'other' }}">{{ doc.get_doc_type_display }}</span>
+                        </td>
+                        <td>{% if doc.current_version %}v{{ doc.current_version.version_number }}{% else %}&mdash;{% endif %}</td>
+                        <td>{{ doc.job.plan_number }}</td>
+                        <td>{{ doc.job.client.name|default:"—" }}</td>
+                        <td>
+                            <div class="uploader-cell">
+                                {% if doc.uploaded_by %}
+                                <div class="avatar">{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username|first|upper }}</div>
+                                <span>{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username }}</span>
+                                {% else %}
+                                <div class="avatar">O</div>
+                                <span>—</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>{% if doc.current_version %}{{ doc.current_version.uploaded_at|date:"d M Y" }}{% else %}{{ doc.uploaded_at|date:"d M Y" }}{% endif %}</td>
+                        <td class="actions-col"><a class="table-menu" href="{% url 'documents:detail' doc.pk %}" aria-label="Open {{ doc.title|default:doc.filename }}">•••</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">No documents found.</div>
+        {% endif %}
+
+        <div class="document-footer">
+            <span>Showing {{ page.start_index }}-{{ page.end_index }} of {{ page.paginator.count }} documents</span>
+            {% if page.has_other_pages %}<div class="pagination">
+                {% if page.has_previous %}<a class="page-btn" href="?q={{ q|urlencode }}&amp;type={{ selected_type|urlencode }}&amp;version={{ selected_version|urlencode }}&amp;client={{ selected_client|urlencode }}&amp;page={{ page.previous_page_number }}" aria-label="Previous page">&lsaquo;</a>{% else %}<span class="page-btn disabled">&lsaquo;</span>{% endif %}
+                <span class="page-current">{{ page.number }}</span>
+                {% if page.has_next %}<a class="page-btn" href="?q={{ q|urlencode }}&amp;type={{ selected_type|urlencode }}&amp;version={{ selected_version|urlencode }}&amp;client={{ selected_client|urlencode }}&amp;page={{ page.next_page_number }}" aria-label="Next page">&rsaquo;</a>{% else %}<span class="page-btn disabled">&rsaquo;</span>{% endif %}
+            </div>{% endif %}
+        </div>
+    </div>
+</div>
+{% if upload_jobs %}
+<script>
+(function () {
+    var dialog = document.getElementById('upload-dialog');
+    document.getElementById('open-upload-dialog').addEventListener('click', function () {
+        dialog.showModal();
+    });
+    document.getElementById('close-upload-dialog').addEventListener('click', function () {
+        dialog.close();
+    });
+})();
+</script>
+{% endif %}
+<script>
+(function () {
+    var rowCheckboxes = Array.from(document.querySelectorAll('.document-row-checkbox'));
+    var selectAll = document.getElementById('select-all-documents');
+    var tableSelectAll = document.getElementById('select-all-table');
+    var count = document.getElementById('selected-document-count');
+    var download = document.getElementById('download-selected-document');
+
+    function updateSelection() {
+        var selected = rowCheckboxes.filter(function (checkbox) { return checkbox.checked; });
+        count.textContent = selected.length + ' document' + (selected.length === 1 ? '' : 's') + ' selected';
+        var allSelected = rowCheckboxes.length > 0 && selected.length === rowCheckboxes.length;
+        selectAll.checked = allSelected;
+        if (tableSelectAll) {
+            tableSelectAll.checked = allSelected;
+        }
+        if (selected.length === 1 && selected[0].dataset.downloadUrl) {
+            download.href = selected[0].dataset.downloadUrl;
+            download.classList.remove('is-disabled');
+            download.removeAttribute('aria-disabled');
+        } else {
+            download.removeAttribute('href');
+            download.classList.add('is-disabled');
+            download.setAttribute('aria-disabled', 'true');
+        }
+    }
+
+    function toggleAll(checked) {
+        rowCheckboxes.forEach(function (checkbox) { checkbox.checked = checked; });
+        updateSelection();
+    }
+
+    rowCheckboxes.forEach(function (checkbox) {
+        checkbox.addEventListener('change', updateSelection);
+    });
+    selectAll.addEventListener('change', function () { toggleAll(selectAll.checked); });
+    if (tableSelectAll) {
+        tableSelectAll.addEventListener('change', function () { toggleAll(tableSelectAll.checked); });
+    }
+    document.getElementById('clear-document-selection').addEventListener('click', function () {
+        toggleAll(false);
+    });
+    updateSelection();
+})();
+</script>
+{% endblock %}

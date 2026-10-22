@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+{% load dashboard_extras %}
+{% block title %}Dashboard - SwiftVertex Geomatics{% endblock %}
+{% block content %}
+
+<div class="dash-header">
+    <div class="dash-greeting">
+        <h1>{{ greeting_word }}, {{ greeting_name }} 👋</h1>
+        <p>Welcome back to SwiftVertex Geomatics Limited</p>
+    </div>
+
+    <form method="get" class="dash-filters">
+        <div class="filter-field">
+            <label for="quarter">Quarter</label>
+            <select id="quarter" name="quarter">
+                {% for num, label in quarter_choices.items %}
+                <option value="{{ num }}" {% if num == selected_quarter %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="year">Year</label>
+            <select id="year" name="year">
+                {% for y in year_choices %}
+                <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn-apply">{% icon 'filter' 15 %} Apply</button>
+    </form>
+</div>
+
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-card-top">
+            <div class="stat-icon blue">{% icon 'briefcase' 20 %}</div>
+            <span class="stat-label">Total Jobs</span>
+        </div>
+        <p class="stat-value">{{ total_jobs.value }}</p>
+        <p class="stat-delta">
+            {% if total_jobs.change != None %}
+                {% if total_jobs.change >= 0 %}<span class="up">{% icon 'arrow-up' 12 %} {{ total_jobs.change }}%</span>
+                {% else %}<span class="down">{% icon 'arrow-down' 12 %} {{ total_jobs.change }}%</span>{% endif %}
+                vs {{ prev_quarter_label }}
+            {% else %}new this quarter{% endif %}
+        </p>
+        <a href="{% url 'jobs:list' %}" class="stat-link">View all jobs {% icon 'arrow-right' 14 %}</a>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-card-top">
+            <div class="stat-icon green">{% icon 'check-circle' 20 %}</div>
+            <span class="stat-label">Active Jobs</span>
+        </div>
+        <p class="stat-value">{{ active_jobs.value }}</p>
+        <p class="stat-delta">
+            {% if active_jobs.change != None %}
+                {% if active_jobs.change >= 0 %}<span class="up">{% icon 'arrow-up' 12 %} {{ active_jobs.change }}%</span>
+                {% else %}<span class="down">{% icon 'arrow-down' 12 %} {{ active_jobs.change }}%</span>{% endif %}
+                vs {{ prev_quarter_label }}
+            {% else %}new this quarter{% endif %}
+        </p>
+        <a href="{% url 'jobs:list' %}?status=active" class="stat-link">View active jobs {% icon 'arrow-right' 14 %}</a>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-card-top">
+            <div class="stat-icon purple">{% icon 'flag' 20 %}</div>
+            <span class="stat-label">Completed Jobs</span>
+        </div>
+        <p class="stat-value">{{ completed_jobs.value }}</p>
+        <p class="stat-delta">
+            {% if completed_jobs.change != None %}
+                {% if completed_jobs.change >= 0 %}<span class="up">{% icon 'arrow-up' 12 %} {{ completed_jobs.change }}%</span>
+                {% else %}<span class="down">{% icon 'arrow-down' 12 %} {{ completed_jobs.change }}%</span>{% endif %}
+                vs {{ prev_quarter_label }}
+            {% else %}new this quarter{% endif %}
+        </p>
+        <a href="{% url 'jobs:list' %}?status=completed" class="stat-link">View completed jobs {% icon 'arrow-right' 14 %}</a>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-card-top">
+            <div class="stat-icon orange">{% icon 'users' 20 %}</div>
+            <span class="stat-label">Total Clients</span>
+        </div>
+        <p class="stat-value">{{ total_clients.value }}</p>
+        <p class="stat-delta">
+            {% if total_clients.change != None %}
+                {% if total_clients.change >= 0 %}<span class="up">{% icon 'arrow-up' 12 %} {{ total_clients.change }}%</span>
+                {% else %}<span class="down">{% icon 'arrow-down' 12 %} {{ total_clients.change }}%</span>{% endif %}
+                vs {{ prev_quarter_label }}
+            {% else %}new this quarter{% endif %}
+        </p>
+        <a href="{% url 'clients:list' %}" class="stat-link">View all clients {% icon 'arrow-right' 14 %}</a>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-card-top">
+            <div class="stat-icon red">{% icon 'file-text' 20 %}</div>
+            <span class="stat-label">Documents</span>
+        </div>
+        <p class="stat-value">{{ total_documents.value }}</p>
+        <p class="stat-delta">
+            {% if total_documents.change != None %}
+                {% if total_documents.change >= 0 %}<span class="up">{% icon 'arrow-up' 12 %} {{ total_documents.change }}%</span>
+                {% else %}<span class="down">{% icon 'arrow-down' 12 %} {{ total_documents.change }}%</span>{% endif %}
+                vs {{ prev_quarter_label }}
+            {% else %}new this quarter{% endif %}
+        </p>
+        <a href="{% url 'documents:list' %}" class="stat-link">View documents {% icon 'arrow-right' 14 %}</a>
+    </div>
+</div>
+
+<div class="dash-main-grid">
+    <div class="panel chart-card">
+        <div class="chart-card-head">
+            <div class="chart-card-title">Job Activity (Quarterly) {% icon 'info' 15 %}</div>
+            <form method="get" class="chart-card-filters">
+                <div class="filter-field">
+                    <label for="quarter2">Quarter</label>
+                    <select id="quarter2" name="quarter" onchange="this.form.submit()">
+                        {% for num, label in quarter_choices.items %}
+                        <option value="{{ num }}" {% if num == selected_quarter %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="year2">Year</label>
+                    <select id="year2" name="year" onchange="this.form.submit()">
+                        {% for y in year_choices %}
+                        <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+        </div>
+        <div class="chart-wrap">
+            <canvas id="jobActivityChart"></canvas>
+        </div>
+    </div>
+
+    <div class="panel quick-actions">
+        <p class="quick-actions-title">Quick Actions</p>
+        <div class="quick-actions-grid">
+            <a href="{% url 'jobs:create' %}" class="quick-action">
+                <div class="quick-action-icon blue">{% icon 'plus' 18 %}</div>
+                <div>
+                    <p class="quick-action-title">New Job</p>
+                    <p class="quick-action-sub">Create a new survey job</p>
+                </div>
+            </a>
+            <a href="{% url 'clients:create' %}" class="quick-action">
+                <div class="quick-action-icon green">{% icon 'user-plus' 18 %}</div>
+                <div>
+                    <p class="quick-action-title">New Client</p>
+                    <p class="quick-action-sub">Add a new client</p>
+                </div>
+            </a>
+            <a href="{% url 'documents:list' %}" class="quick-action">
+                <div class="quick-action-icon purple">{% icon 'upload' 18 %}</div>
+                <div>
+                    <p class="quick-action-title">Upload Document</p>
+                    <p class="quick-action-sub">Upload files &amp; documents</p>
+                </div>
+            </a>
+            <a href="{% url 'reports:home' %}" class="quick-action">
+                <div class="quick-action-icon orange">{% icon 'bar-chart' 18 %}</div>
+                <div>
+                    <p class="quick-action-title">View Reports</p>
+                    <p class="quick-action-sub">Generate reports</p>
+                </div>
+            </a>
+            <a href="{% url 'accounts:team' %}" class="quick-action">
+                <div class="quick-action-icon teal">{% icon 'users' 18 %}</div>
+                <div>
+                    <p class="quick-action-title">Team / Users</p>
+                    <p class="quick-action-sub">Manage users &amp; permissions</p>
+                </div>
+            </a>
+            <a href="{% url 'accounts:my_profile' %}" class="quick-action">
+                <div class="quick-action-icon gray">{% icon 'settings' 18 %}</div>
+                <div>
+                    <p class="quick-action-title">Settings</p>
+                    <p class="quick-action-sub">System preferences</p>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="panel recent-panel">
+    <div class="recent-panel-head">
+        <h2>Recent Jobs</h2>
+        <a href="{% url 'jobs:list' %}">View all jobs</a>
+    </div>
+    {% if recent_jobs %}
+    <table class="sv-table">
+        <thead>
+            <tr>
+                <th>Plan No.</th><th>Title</th><th>Client</th><th>Location</th><th>Date</th><th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for job in recent_jobs %}
+            <tr>
+                <td class="job-no" data-label="Plan No.">{{ job.plan_number }}</td>
+                <td data-label="Title">{{ job.title }}</td>
+                <td data-label="Client">{{ job.client }}</td>
+                <td data-label="Location">{{ job.location }}</td>
+                <td data-label="Date">{{ job.date|date:"d M Y" }}</td>
+                <td data-label="Status">
+                    {% if job.status == "completed" %}
+                    <span class="status-pill completed"><span class="dot"></span> Completed</span>
+                    {% elif job.status == "on_hold" %}
+                    <span class="status-pill pending"><span class="dot"></span> Pending</span>
+                    {% else %}
+                    <span class="status-pill active"><span class="dot"></span> Active</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No jobs yet. <a href="{% url 'jobs:create' %}">Create your first job</a>.</div>
+    {% endif %}
+</div>
+
+<div class="dash-footer">
+    <p>&copy; {% now "Y" %} SwiftVertex Geomatics Limited. All rights reserved.</p>
+    <p class="tagline">Precision <span>&bull;</span> Integrity <span>&bull;</span> Excellence</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script>
+(function () {
+    const ctx = document.getElementById('jobActivityChart');
+    const labels = {{ chart_labels|safe }};
+    const values = {{ chart_values|safe }};
+
+    const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 300);
+    gradient.addColorStop(0, 'rgba(31, 79, 236, 0.28)');
+    gradient.addColorStop(1, 'rgba(31, 79, 236, 0.0)');
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: values,
+                borderColor: '#1f4fec',
+                backgroundColor: gradient,
+                borderWidth: 2.5,
+                pointBackgroundColor: '#fff',
+                pointBorderColor: '#1f4fec',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 6,
+                fill: true,
+                tension: 0.35,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#16192b',
+                    padding: 10,
+                    displayColors: false,
+                    callbacks: { label: (c) => `${c.parsed.y} jobs` }
+                },
+                datalabels: false,
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f0f1f5' },
+                    ticks: { color: '#9a9eac', font: { size: 11.5 } },
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#9a9eac', font: { size: 11.5 } },
+                }
+            }
+        },
+        plugins: [{
+            id: 'pointLabels',
+            afterDatasetsDraw(chart) {
+                const { ctx, data } = chart;
+                const meta = chart.getDatasetMeta(0);
+                ctx.save();
+                ctx.font = '600 12px -apple-system, sans-serif';
+                ctx.fillStyle = '#16192b';
+                ctx.textAlign = 'center';
+                meta.data.forEach((point, i) => {
+                    ctx.fillText(data.datasets[0].data[i], point.x, point.y - 14);
+                });
+                ctx.restore();
+            }
+        }]
+    });
+})();
+</script>
+{% endblock %}

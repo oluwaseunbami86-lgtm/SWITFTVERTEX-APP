@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load permission_extras %}
+{% block title %}{{ doc.filename }} - SwiftVertex Geomatics{% endblock %}
+{% block content %}
+{% can request.user 'edit_job' job as may_edit %}{% can request.user 'delete' job as may_delete %}{% can request.user 'create' job as may_verify %}
+<div class="page-header">
+    <h1>{{ doc.title|default:doc.filename }}</h1>
+    <div style="display:flex; gap:8px;">
+        <a class="btn" href="{% url 'jobs:detail' job.pk %}">Back to job</a>
+        {% can request.user 'edit_content' job as may_content %}
+        {% if doc.lifecycle == 'active' and may_content and job.lifecycle == 'active' %}<a class="btn btn-primary" href="{% url 'documents:upload' job.pk %}?document={{ doc.pk }}">+ New version</a>{% endif %}
+        {% if may_verify %}<form method="post" action="{% url 'documents:verify' doc.pk %}" style="display:inline;">{% csrf_token %}<button class="btn" type="submit">Verify files</button></form>{% endif %}
+        {% if may_delete %}
+            {% if doc.lifecycle == 'active' and job.lifecycle == 'active' %}<form method="post" action="{% url 'documents:delete' doc.pk %}" style="display:inline;" onsubmit="return confirm('Delete this document? All versions are kept and it can be restored.');">{% csrf_token %}<button class="btn" type="submit" style="color:#a32d2d;">Delete</button></form>
+            {% elif doc.lifecycle == 'deleted' %}<form method="post" action="{% url 'documents:restore' doc.pk %}" style="display:inline;">{% csrf_token %}<button class="btn" type="submit">Restore</button></form> <a class="btn" style="color:#a32d2d;" href="{% url 'documents:purge' doc.pk %}">Permanently delete</a>{% endif %}
+        {% endif %}
+    </div>
+</div>
+<p class="muted">Job {{ job.plan_number }} &mdash; {{ job.title }} &middot; {{ doc.get_doc_type_display }}</p>
+{% if doc.lifecycle == 'deleted' %}<div class="alert alert-error">This document is deleted and hidden from normal lists.</div>{% endif %}
+{% if doc.description %}<p>{{ doc.description }}</p>{% endif %}
+
+<h2 style="font-size:15px;">Version history</h2>
+<table>
+    <thead><tr><th>Version</th><th>File</th><th>Size</th><th>Uploaded</th><th>By</th><th>Note</th><th>Integrity</th><th>SHA-256</th><th></th></tr></thead>
+    <tbody>
+    {% for v in versions %}
+        <tr>
+            <td>v{{ v.version_number }}{% if v.is_current %} <span class="badge badge-accent">CURRENT</span>{% endif %}</td>
+            <td>{{ v.original_filename }}{% if v.overwritten_at %}<br><span class="muted">overwritten {{ v.overwritten_at|date:"j M Y H:i" }}{% if v.overwritten_by %} by {{ v.overwritten_by }}{% endif %}</span>{% endif %}</td>
+            <td>{{ v.size_bytes|filesizeformat }}</td>
+            <td>{{ v.uploaded_at|date:"j M Y H:i" }}</td>
+            <td>{{ v.uploaded_by|default:"—" }}</td>
+            <td>{{ v.change_note|default:"—" }}</td>
+            <td>{% if v.integrity_status == 'ok' %}<span class="badge badge-accent">Verified</span>{% elif v.integrity_status == 'unverified' %}<span class="muted">Not yet verified</span>{% else %}<span class="badge" style="background:#fcebeb;color:#a32d2d;">{{ v.get_integrity_status_display }}</span>{% endif %}{% if v.storage_backend == 'legacy_media' %}<br><span class="muted">Local file - not yet in R2</span>{% endif %}</td>
+            <td><code title="{{ v.sha256 }}">{{ v.sha256|slice:":10" }}{% if v.sha256 %}…{% endif %}</code></td>
+            <td style="white-space:nowrap;">
+                <a href="{% url 'documents:download' v.pk %}">Download</a>
+                {% if v.mime_type == 'application/pdf' or v.mime_type == 'image/jpeg' or v.mime_type == 'image/png' %} &middot; <a href="{% url 'documents:download' v.pk %}?inline=1" target="_blank">View</a>{% endif %}
+                {% if not v.is_current and may_edit and doc.lifecycle == 'active' and job.lifecycle == 'active' %}
+                <form method="post" action="{% url 'documents:make_current' v.pk %}" style="display:inline;" onsubmit="return confirm('Make version {{ v.version_number }} the current version?');">{% csrf_token %}<button type="submit" class="btn" style="padding:2px 8px;">Make current</button></form>{% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

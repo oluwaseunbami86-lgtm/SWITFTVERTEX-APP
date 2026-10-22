@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Locations - SurveyCo{% endblock %}
+{% block content %}
+<div class="page-header"><h1>Locations</h1></div>
+{% if locations %}
+<table>
+    <thead><tr><th>Name</th><th>City</th><th>State</th></tr></thead>
+    <tbody>
+        {% for location in locations %}
+        <tr><td>{{ location.name }}</td><td>{{ location.city|default:"—" }}</td><td>{{ location.state }}</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">No locations recorded yet. Locations are added when creating a job.</div>
+{% endif %}
+{% endblock %}

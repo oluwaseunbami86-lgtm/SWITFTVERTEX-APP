@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Clients - SurveyCo{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Clients</h1>
+    <a href="{% url 'clients:create' %}" class="btn btn-primary">+ New client</a>
+</div>
+
+<form method="get" class="search-bar">
+    <input type="text" name="q" placeholder="Search clients..." value="{{ query }}">
+</form>
+
+{% if clients %}
+<table>
+    <thead><tr><th>Name</th><th>Type</th><th>Phone</th><th>Active jobs</th></tr></thead>
+    <tbody>
+        {% for client in clients %}
+        <tr onclick="window.location='{% url 'clients:detail' client.pk %}'" style="cursor:pointer;">
+            <td>{{ client.name }}</td>
+            <td>{{ client.get_client_type_display }}</td>
+            <td>{{ client.phone_number|default:"—" }}</td>
+            <td>{{ client.active_job_count }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">No clients yet. <a href="{% url 'clients:create' %}">Add your first client</a>.</div>
+{% endif %}
+{% endblock %}

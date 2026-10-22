@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% load permission_extras %}
+{% block title %}Jobs - SurveyCo{% endblock %}
+{% block content %}
+{% can request.user 'create' as may_create %}
+{% can request.user 'delete' as may_delete %}
+
+<div class="jobs-page">
+    <header class="jobs-heading">
+        <div class="jobs-heading-copy">
+            <span class="jobs-heading-icon" aria-hidden="true">J</span>
+            <div>
+                <h1>Jobs</h1>
+                <p>Manage and track all your jobs in one place.</p>
+            </div>
+        </div>
+        {% if may_create %}
+        <a href="{% url 'jobs:create' %}" class="jobs-new-button"><span aria-hidden="true">+</span> New Job</a>
+        {% endif %}
+    </header>
+
+    <form method="get" class="jobs-filter-panel">
+        <input type="hidden" name="show" value="{{ show }}">
+        <div class="jobs-filter-field jobs-search-field">
+            <label for="{{ filter.form.search.id_for_label }}">Search</label>
+            <input id="{{ filter.form.search.id_for_label }}" type="search" name="search"
+                   value="{{ filter.form.search.value|default:'' }}" placeholder="Job no., client, address...">
+        </div>
+        <div class="jobs-filter-field">
+            <label for="{{ filter.form.status.id_for_label }}">Status</label>
+            {{ filter.form.status }}
+        </div>
+        <div class="jobs-filter-field">
+            <label for="{{ filter.form.survey_type.id_for_label }}">Survey Type</label>
+            {{ filter.form.survey_type }}
+        </div>
+        <div class="jobs-filter-field">
+            <label for="{{ filter.form.job_type.id_for_label }}">Job Type</label>
+            {{ filter.form.job_type }}
+        </div>
+        <div class="jobs-filter-field">
+            <label for="{{ filter.form.client.id_for_label }}">Client</label>
+            {{ filter.form.client }}
+        </div>
+        <div class="jobs-filter-field">
+            <label for="{{ filter.form.plan_number.id_for_label }}">Plan number</label>
+            {{ filter.form.plan_number }}
+        </div>
+        <button type="submit" class="jobs-filter-button"><span aria-hidden="true">☷</span> Filter</button>
+    </form>
+
+    <div class="jobs-tabs-and-export">
+        <nav class="jobs-tabs" aria-label="Job lifecycle">
+            <a class="jobs-tab{% if show == 'all' %} is-active{% endif %}" href="?show=all">
+                <span class="jobs-tab-dot jobs-dot-all"></span>All Jobs <span class="jobs-tab-count">{{ counts.all }}</span>
+            </a>
+            <a class="jobs-tab{% if show == 'active' %} is-active{% endif %}" href="?show=active">
+                <span class="jobs-tab-dot jobs-dot-active"></span>Active <span class="jobs-tab-count">{{ counts.active }}</span>
+            </a>
+            <a class="jobs-tab{% if show == 'archived' %} is-active{% endif %}" href="?show=archived">
+                <span class="jobs-tab-dot jobs-dot-archived"></span>Archived <span class="jobs-tab-count">{{ counts.archived }}</span>
+            </a>
+            {% if may_delete %}
+            <a class="jobs-tab{% if show == 'deleted' %} is-active{% endif %}" href="?show=deleted">
+                <span class="jobs-tab-dot jobs-dot-deleted"></span>Deleted <span class="jobs-tab-count">{{ counts.deleted }}</span>
+            </a>
+            {% endif %}
+        </nav>
+        {% if jobs and may_export %}
+        <div class="jobs-export-form">
+            <button type="submit" form="jobs-export-selection" class="jobs-export-button"><span aria-hidden="true">▣</span> Export Selected (Word)</button>
+        </div>
+        {% endif %}
+    </div>
+
+    <section class="jobs-table-card" aria-label="Jobs">
+        {% if jobs %}
+        <form method="get" action="{% url 'reports:export_jobs_docx' %}" id="jobs-export-selection">
+            <input type="hidden" name="selection" value="1">
+            <div class="jobs-table-scroll">
+                <table class="jobs-table">
+                    <thead>
+                        <tr>
+                            {% if may_export %}<th class="jobs-check-column"><input type="checkbox" id="select-all-jobs" aria-label="Select all jobs"></th>{% endif %}
+                            <th>Job</th>
+                            <th>Plan No.</th>
+                            <th>Client</th>
+                            <th>Address</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th class="jobs-actions-column">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for job in jobs %}
+                        <tr>
+                            {% if may_export %}<td class="jobs-check-column"><input type="checkbox" name="job_ids" value="{{ job.pk }}" aria-label="Select {{ job.title }}"></td>{% endif %}
+                            <td class="jobs-title-cell">
+                                <a href="{% url 'jobs:detail' job.pk %}" class="jobs-title-link">
+                                    <span class="jobs-row-icon" aria-hidden="true">J</span>
+                                    <span><strong>{{ job.title }}</strong><small>{{ job.job_date|date:"M j, Y" }}</small></span>
+                                </a>
+                            </td>
+                            <td class="jobs-plan-cell">{{ job.plan_number|default:"—" }}</td>
+                            <td>
+                                {% if job.client %}
+                                <span class="jobs-client-cell">
+                                    <span class="jobs-client-avatar" aria-hidden="true">{{ job.client.name|slice:":2"|upper }}</span>
+                                    {{ job.client.name }}
+                                </span>
+                                {% else %}—{% endif %}
+                            </td>
+                            <td class="jobs-address-cell"><span class="jobs-location-dot" aria-hidden="true"></span>{{ job.job_address }}</td>
+                            <td><span class="jobs-type-badge">{{ job.get_survey_type_display }}</span></td>
+                            <td>
+                                <span class="jobs-status-badge jobs-status-{{ job.status }}">{{ job.get_status_display }}</span>
+                                {% if job.lifecycle != 'active' %}<small class="jobs-lifecycle-label">{{ job.get_lifecycle_display }}</small>{% endif %}
+                            </td>
+                            <td class="jobs-actions-column">
+                                <a href="{% url 'jobs:detail' job.pk %}" class="jobs-action-link" aria-label="View {{ job.title }}">•••</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+        {% else %}
+        <div class="jobs-empty-state">
+            <strong>No jobs match.</strong>
+            {% if may_create %}<a href="{% url 'jobs:create' %}">Create a job</a>{% endif %}
+        </div>
+        {% endif %}
+
+        <footer class="jobs-table-footer">
+            <span>
+                {% if page.paginator.count %}
+                    Showing {{ page.start_index }}–{{ page.end_index }} of {{ page.paginator.count }} job{{ page.paginator.count|pluralize }}
+                {% else %}
+                    Showing 0 jobs
+                {% endif %}
+            </span>
+            <nav class="jobs-pagination" aria-label="Job list pages">
+                {% if page.has_previous %}
+                <a href="?{{ query_string }}&amp;page={{ page.previous_page_number }}" aria-label="Previous page">‹</a>
+                {% else %}<span class="is-disabled" aria-hidden="true">‹</span>{% endif %}
+                <span class="jobs-current-page">{{ page.number }}</span>
+                {% if page.has_next %}
+                <a href="?{{ query_string }}&amp;page={{ page.next_page_number }}" aria-label="Next page">›</a>
+                {% else %}<span class="is-disabled" aria-hidden="true">›</span>{% endif %}
+            </nav>
+        </footer>
+    </section>
+</div>
+
+<script>
+    const selectAll = document.getElementById('select-all-jobs');
+    if (selectAll) {
+        selectAll.addEventListener('change', function () {
+            document.querySelectorAll('#jobs-export-selection input[name="job_ids"]').forEach(function (checkbox) {
+                checkbox.checked = selectAll.checked;
+            });
+        });
+    }
+</script>
+{% endblock %}

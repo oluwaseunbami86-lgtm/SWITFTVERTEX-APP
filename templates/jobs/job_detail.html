@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load permission_extras %}
+{% block title %}{{ job.title }} - SurveyCo{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>{{ job.title }}</h1>
+    <div style="display:flex; gap:8px;">
+        {% can request.user 'edit_job' job as may_edit %}{% can request.user 'archive' job as may_archive %}{% can request.user 'delete' job as may_delete %}
+        {% if job.lifecycle == 'active' %}
+            {% if may_edit %}<a href="{% url 'jobs:update' job.pk %}" class="btn">Edit job</a>{% endif %}
+            {% if may_archive %}<a href="{% url 'jobs:archive' job.pk %}" class="btn">Archive</a>{% endif %}
+        {% elif job.lifecycle == 'archived' %}
+            {% if may_archive %}<a href="{% url 'jobs:restore' job.pk %}" class="btn">Restore</a>{% endif %}
+            {% if may_delete %}<a href="{% url 'jobs:delete' job.pk %}" class="btn" style="color:#a32d2d;">Delete</a>{% endif %}
+        {% else %}
+            {% if may_archive %}<a href="{% url 'jobs:restore' job.pk %}" class="btn">Restore</a>{% endif %}
+            {% if may_delete %}<a href="{% url 'jobs:purge' job.pk %}" class="btn" style="color:#a32d2d;">Permanently delete</a>{% endif %}
+        {% endif %}
+    </div>
+</div>
+{% if job.lifecycle == 'archived' %}<div class="alert alert-warning">This job is archived and read-only{% if job.archived_at %} (since {{ job.archived_at|date:"j M Y" }}){% endif %}.</div>{% endif %}
+{% if job.lifecycle == 'deleted' %}<div class="alert alert-error">This job is deleted and hidden from normal lists. It can be restored by an administrator.</div>{% endif %}
+
+<div class="card">
+    <p><span class="muted">Plan number:</span> {{ job.plan_number }}</p>
+    <p><span class="muted">Job date:</span> {{ job.job_date }}</p>
+    {% if job.project %}<p><span class="muted">Project:</span> {{ job.project.name }}</p>{% endif %}
+    <p><span class="muted">Address:</span> {{ job.job_address }}</p>
+    <p><span class="muted">Client:</span> {% if job.client %}{% can request.user 'edit_client' job.client as may_view_client %}{% if may_view_client %}<a href="{% url 'clients:detail' job.client.pk %}">{{ job.client.name }}</a>{% else %}{{ job.client.name }}{% endif %}{% else %}—{% endif %}</p>
+    <p><span class="muted">Type:</span> {{ job.get_job_type_display }}</p>
+    <p><span class="muted">Survey area:</span> {{ job.survey_area }} {{ job.get_area_unit_display }}</p>
+    {% if job.has_reference_number %}<p><span class="muted">Reference number:</span> {{ job.reference_number }}</p>{% endif %}
+    <p><span class="muted">Status:</span> <span class="badge badge-{{ job.status_color }}">{{ job.get_status_display }}</span></p>
+    <p><span class="muted">Assigned to:</span> {{ job.assigned_to.get_full_name|default:"Unassigned" }}</p>
+    {% if job.description %}<p><span class="muted">Notes:</span> {{ job.description }}</p>{% endif %}
+</div>
+
+<div class="page-header">
+    <h1 style="font-size:15px;">Survey beacons</h1>
+    {% can request.user 'edit_content' job as may_edit_content %}
+    {% if may_edit_content and job.lifecycle == 'active' %}
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            <a href="{% url 'survey_points:create' job.pk %}" class="btn">Manual coordinate entry</a>
+            <a href="{% url 'survey_points:create' job.pk %}?mode=batch" class="btn">Batch coordinate import</a>
+        </div>
+    {% endif %}
+</div>
+{% if survey_points %}
+<table>
+    <thead><tr><th>Beacon number</th><th>Northing</th><th>Easting</th><th>Height</th><th>Captured by</th></tr></thead>
+    <tbody>
+        {% for point in survey_points %}
+        <tr><td>{{ point.beacon_number }}</td><td>{{ point.northing }}</td><td>{{ point.easting }}</td><td>{{ point.height }}</td><td>{{ point.captured_by }}</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">No beacons recorded yet.</div>
+{% endif %}
+
+<div class="page-header" style="margin-top:1.5rem;">
+    <h1 style="font-size:15px;">Documents</h1>
+    {% can request.user 'edit_content' job as may_content %}{% if may_content and job.lifecycle == 'active' %}<a href="{% url 'documents:upload' job.pk %}" class="btn">+ Upload document</a>{% endif %}
+</div>
+{% if documents %}
+<table>
+    <thead><tr><th>File</th><th>Type</th><th>Uploaded by</th></tr></thead>
+    <tbody>
+        {% for doc in documents %}
+        <tr><td><a href="{% url 'documents:detail' doc.pk %}">{{ doc.title|default:doc.filename }}</a>{% if doc.current_version %} <span class="muted">v{{ doc.current_version.version_number }}</span>{% if doc.current_version.integrity_status == 'missing' or doc.current_version.integrity_status == 'corrupt' %} <span class="badge" style="background:#fcebeb;color:#a32d2d;">{{ doc.current_version.get_integrity_status_display }}</span>{% endif %}{% endif %}</td><td>{{ doc.get_doc_type_display }}</td><td>{{ doc.uploaded_by }}</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">No documents uploaded yet.</div>
+{% endif %}
+{% endblock %}

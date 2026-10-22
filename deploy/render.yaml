@@ -1,0 +1,54 @@
+# Render Blueprint. Secrets are never stored here: every `sync: false` value is
+# entered once in the Render dashboard.
+services:
+  - type: web
+    name: swiftvertex
+    runtime: python
+    buildCommand: ./deploy/build.sh
+    startCommand: gunicorn config.wsgi:application --workers 3 --timeout 120
+    healthCheckPath: /sign-in/
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        sync: false            # e.g. swiftvertex.onrender.com,records.yourdomain.com
+      - key: CSRF_TRUSTED_ORIGINS
+        sync: false            # e.g. https://swiftvertex.onrender.com
+      - key: DATABASE_URL
+        sync: false            # Supabase *Session pooler* string, e.g. postgresql://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com:5432/postgres
+      - key: USE_S3                 # True = store survey files in the private Cloudflare R2 bucket
+        value: "True"
+      - key: AWS_STORAGE_BUCKET_NAME
+        sync: false                 # your R2 bucket name (keep the bucket PRIVATE - no public access / r2.dev URL)
+      - key: AWS_S3_ENDPOINT_URL
+        sync: false                 # https://<account-id>.r2.cloudflarestorage.com
+      - key: AWS_ACCESS_KEY_ID
+        sync: false                 # R2 API token: Object Read & Write, scoped to this one bucket
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: SIGNUP_REQUIRES_APPROVAL
+        value: "True"
+
+  # Daily: delete the old content of overwritten files whose retention period has passed.
+  - type: cron
+    name: swiftvertex-purge-replaced
+    runtime: python
+    schedule: "30 2 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python manage.py purge_replaced_files
+    envVars:
+      - fromService: {type: web, name: swiftvertex, envVarKey: DATABASE_URL}
+  # Weekly: re-read stored files and compare with their recorded checksums. A non-zero
+  # exit marks the run FAILED in Render, which is the alert that something is wrong.
+  - type: cron
+    name: swiftvertex-verify-files
+    runtime: python
+    schedule: "0 3 * * 0"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python manage.py verify_files --limit 500
+    envVars:
+      - fromService: {type: web, name: swiftvertex, envVarKey: DATABASE_URL}

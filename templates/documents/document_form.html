@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% load permission_extras %}
+{% block title %}Upload document - SwiftVertex Geomatics{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>{% if target %}New version of {{ target.filename }}{% else %}Upload document{% endif %}</h1>
+    <a class="btn" href="{% url 'jobs:detail' job.pk %}">Cancel</a>
+</div>
+<p class="muted">Job {{ job.plan_number }} &mdash; {{ job.title }}</p>
+
+{% if conflict %}
+<div class="alert alert-error" style="max-width:640px;">
+    <strong>A file with this name already exists.</strong> Current: {{ conflict.filename }} (version {{ conflict.current_version.version_number }}).
+    Choose below what to do, then select the file again.
+</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" class="card" style="max-width:640px;" id="upload-form">
+    {% csrf_token %}
+    {% if target %}<input type="hidden" name="document" value="{{ target.pk }}">{% endif %}
+    {{ form.non_field_errors }}
+    <p>{{ form.file.label_tag }} {{ form.file }}{% for e in form.file.errors %}<span class="err">{{ e }}</span>{% endfor %}</p>
+    {% if not target %}
+    <p>{{ form.doc_type.label_tag }} {{ form.doc_type }}</p>
+    <p>{{ form.title.label_tag }} {{ form.title }}</p>
+    <p>{{ form.description.label_tag }} {{ form.description }}</p>
+    {% endif %}
+    <p>{{ form.change_note.label_tag }} {{ form.change_note }}</p>
+
+    <div id="conflict-box" {% if not conflict %}hidden{% endif %} class="alert alert-warning">
+        <strong id="conflict-text">A file with this name is already in this job.</strong><br>
+        <label><input type="radio" name="conflict_choice" value="new_version" {% if form.conflict_choice.value == "new_version" or not form.conflict_choice.value %}checked{% endif %}> Keep both &mdash; save as a new version (recommended)</label><br>
+        {% if can_overwrite %}
+        <label><input type="radio" name="conflict_choice" value="overwrite" {% if form.conflict_choice.value == "overwrite" %}checked{% endif %}> Overwrite the current file &mdash; the old content is kept for a limited time, then deleted</label>
+        {% else %}
+        <span class="muted">Your role can save a new version but cannot overwrite.</span>
+        {% endif %}
+    </div>
+
+    <button type="submit" class="btn btn-primary" id="upload-btn">Upload</button>
+    <span class="muted" id="upload-status"></span>
+</form>
+
+<script>
+(function () {
+    var existing = {{ existing|json_script_data|safe }};
+    var input = document.querySelector('input[type=file]'), box = document.getElementById('conflict-box');
+    var target = {{ target|yesno:"true,false" }};
+    input.addEventListener('change', function () {
+        if (target || !input.files.length) { return; }
+        var hit = existing[input.files[0].name.toLowerCase()];
+        box.hidden = !hit;
+        if (hit) { document.getElementById('conflict-text').textContent =
+            '"' + hit.name + '" already exists in this job (version ' + hit.version + '). What should happen?'; }
+    });
+    document.getElementById('upload-form').addEventListener('submit', function () {
+        var b = document.getElementById('upload-btn'); b.disabled = true; b.textContent = 'Uploading and verifying\u2026';
+        document.getElementById('upload-status').textContent = 'Large files can take a while - please keep this page open.';
+    });
+    window.addEventListener('pageshow', function (e) { if (e.persisted) { document.getElementById('upload-btn').disabled = false; } });
+})();
+</script>
+{% endblock %}

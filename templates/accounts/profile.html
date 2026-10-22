@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% load static dashboard_extras %}
+{% block title %}Settings - SwiftVertex Geomatics{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/settings.css' %}?v=profile-avatar-20261021">{% endblock %}
+{% block content %}
+<div class="settings-layout">
+    <nav class="settings-nav" aria-label="Settings">
+        <h1>Settings</h1>
+        <a href="{% url 'accounts:my_profile' %}" class="settings-nav-item {% if section == 'profile' %}active{% endif %}" {% if section == 'profile' %}aria-current="page"{% endif %}>
+            {% icon 'user' 19 %}<span>Profile</span>
+        </a>
+        <a href="{% url 'accounts:change_password' %}" class="settings-nav-item {% if section == 'password' %}active{% endif %}" {% if section == 'password' %}aria-current="page"{% endif %}>
+            {% icon 'lock' 19 %}<span>Change Password</span>
+        </a>
+        <a href="{% url 'accounts:delete_account_info' %}" class="settings-nav-item settings-nav-delete {% if section == 'delete' %}active{% endif %}" {% if section == 'delete' %}aria-current="page"{% endif %}>
+            {% icon 'trash-2' 19 %}<span>Delete Account</span>
+        </a>
+    </nav>
+
+    <section class="settings-content" aria-labelledby="settings-heading">
+        {% if section == "profile" %}
+            <h2 id="settings-heading" class="settings-section-title">Profile</h2>
+            <div class="settings-cover" role="img" aria-label="Surveyor working in the field"></div>
+            <form method="post" enctype="multipart/form-data" class="settings-profile-form">
+                {% csrf_token %}
+            <div class="settings-identity">
+                <div class="settings-avatar-form">
+                    <label for="{{ form.profile_picture.id_for_label }}" class="settings-avatar-upload" title="Upload or change profile picture">
+                        {% if request.user.profile.profile_picture %}
+                            <img id="profile-picture-preview" src="{{ request.user.profile.profile_picture.url }}" alt="Profile picture for {{ request.user.get_full_name|default:request.user.username }}">
+                        {% else %}
+                            <span class="settings-avatar-placeholder" aria-hidden="true">{{ request.user.first_name|first|default:request.user.username|first|upper }}</span>
+                        {% endif %}
+                        <span class="settings-avatar-camera" aria-hidden="true">{% icon 'camera' 15 %}</span>
+                        {{ form.profile_picture }}
+                    </label>
+                    <span class="settings-picture-help">Choose a picture, then save your changes. JPG, PNG or WebP; max 5 MB.</span>
+                    {% for error in form.profile_picture.errors %}<span class="settings-field-error">{{ error }}</span>{% endfor %}
+                    {% if request.user.profile.profile_picture %}
+                        <label class="settings-remove-picture">{{ form.remove_profile_picture }} Remove picture</label>
+                    {% endif %}
+                </div>
+                <div class="settings-identity-text">
+                    <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
+                    <span>{% if request.user.is_superuser %}Super Admin{% else %}{{ request.user.profile.get_role_display }}{% endif %}</span>
+                </div>
+            </div>
+
+            <div class="settings-form-area">
+                <h3>User Info</h3>
+                <div class="settings-form">
+                    <div class="settings-field settings-field-wide">
+                        <label for="{{ form.full_name.id_for_label }}">Full name <span class="required-mark">*</span></label>
+                        {{ form.full_name }}
+                        {% for error in form.full_name.errors %}<span class="settings-field-error">{{ error }}</span>{% endfor %}
+                    </div>
+                    <div class="settings-field settings-field-wide">
+                        <label for="{{ form.email.id_for_label }}">Email address <span class="required-mark">*</span></label>
+                        {{ form.email }}
+                        {% for error in form.email.errors %}<span class="settings-field-error">{{ error }}</span>{% endfor %}
+                    </div>
+                    <div class="settings-field">
+                        <label for="{{ form.phone_number.id_for_label }}">Phone number</label>
+                        {{ form.phone_number }}
+                        {% for error in form.phone_number.errors %}<span class="settings-field-error">{{ error }}</span>{% endfor %}
+                    </div>
+                    {% if form.non_field_errors %}<div class="settings-field-error settings-field-wide">{{ form.non_field_errors }}</div>{% endif %}
+                    <div class="settings-form-actions settings-field-wide">
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+            </form>
+        {% elif section == "password" %}
+            <h2 id="settings-heading" class="settings-section-title">Change Password</h2>
+            <div class="settings-secondary-panel">
+                <p class="settings-intro">Choose a strong password you have not used for this account before.</p>
+                <form method="post" class="settings-form settings-password-form">
+                    {% csrf_token %}
+                    {% for field in form %}
+                    <div class="settings-field settings-field-wide">
+                        <label for="{{ field.id_for_label }}">{{ field.label }} <span class="required-mark">*</span></label>
+                        <div class="settings-password-input">
+                            {{ field }}
+                            <button type="button" class="settings-password-toggle" aria-label="Show {{ field.label|lower }}" aria-pressed="false">Show</button>
+                        </div>
+                        {% for error in field.errors %}<span class="settings-field-error">{{ error }}</span>{% endfor %}
+                    </div>
+                    {% endfor %}
+                    {% if form.non_field_errors %}<div class="settings-field-error settings-field-wide">{{ form.non_field_errors }}</div>{% endif %}
+                    <div class="settings-form-actions settings-field-wide">
+                        <button type="submit" class="btn btn-primary">Change Password</button>
+                    </div>
+                </form>
+            </div>
+        {% else %}
+            <h2 id="settings-heading" class="settings-section-title">Delete Account</h2>
+            <div class="settings-secondary-panel settings-delete-panel">
+                <h3>Account deletion is managed by a Super Admin</h3>
+                <p>Deleting an account can affect access to jobs, documents, and audit history. To preserve required records and follow the application's data-retention rules, account deletion is restricted to authorized Super Admins.</p>
+                <p>Contact your organization's Super Admin to request account removal. Your account and its data will not be deleted from this page.</p>
+                {% if request.user.is_superuser %}
+                    <a class="btn btn-outline" href="{% url 'accounts:users' %}">Manage user accounts</a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </section>
+</div>
+{% if section == "password" %}
+<script>
+document.querySelectorAll(".settings-password-toggle").forEach(function (button) {
+    button.addEventListener("click", function () {
+        const input = button.parentElement.querySelector("input");
+        const showing = input.type === "text";
+        input.type = showing ? "password" : "text";
+        button.textContent = showing ? "Show" : "Hide";
+        button.setAttribute("aria-pressed", String(!showing));
+        button.setAttribute("aria-label", (showing ? "Show " : "Hide ") + input.labels[0].textContent.toLowerCase());
+    });
+});
+</script>
+{% elif section == "profile" %}
+<script>
+const profilePictureInput = document.getElementById("{{ form.profile_picture.id_for_label }}");
+const profilePictureAvatar = document.querySelector(".settings-avatar-upload");
+let profilePicturePreviewUrl;
+
+profilePictureInput.addEventListener("change", function () {
+    const file = profilePictureInput.files[0];
+    if (!file) return;
+
+    if (profilePicturePreviewUrl) URL.revokeObjectURL(profilePicturePreviewUrl);
+    profilePicturePreviewUrl = URL.createObjectURL(file);
+
+    let preview = document.getElementById("profile-picture-preview");
+    if (!preview) {
+        preview = document.createElement("img");
+        preview.id = "profile-picture-preview";
+        preview.alt = "Selected profile picture preview";
+        profilePictureAvatar.querySelector(".settings-avatar-placeholder").replaceWith(preview);
+    }
+    preview.src = profilePicturePreviewUrl;
+});
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,57 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SwiftVertex Geomatics{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/auth.css' %}">
+</head>
+<body class="auth {% block body_class %}{% endblock %}">
+{% block body %}{% endblock %}
+<script>
+(function () {
+    // Show/hide password
+    document.querySelectorAll('[data-toggle-password]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var input = btn.parentElement.querySelector('input');
+            var show = input.type === 'password';
+            input.type = show ? 'text' : 'password';
+            btn.classList.toggle('on', show);
+            btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+            btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        });
+    });
+    // Wire server-side errors to their inputs for screen readers
+    document.querySelectorAll('.field.has-error').forEach(function (f) {
+        var input = f.querySelector('input, select');
+        var errs = Array.prototype.map.call(f.querySelectorAll('.err'), function (e) { return e.id; });
+        if (input) { input.setAttribute('aria-invalid', 'true'); input.setAttribute('aria-describedby', errs.join(' ')); }
+    });
+    // Loading state on submit (prevents double submits)
+    document.querySelectorAll('form[data-loading-form]').forEach(function (form) {
+        var btn = form.querySelector('button[type=submit]');
+        if (!btn) return;
+        var original = btn.innerHTML;
+        form.addEventListener('submit', function () {
+            btn.disabled = true;
+            btn.setAttribute('aria-busy', 'true');
+            btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> ' + (btn.dataset.loadingText || 'Please wait\u2026');
+        });
+        window.addEventListener('pageshow', function (e) {   // back button restores the page
+            if (e.persisted) { btn.disabled = false; btn.removeAttribute('aria-busy'); btn.innerHTML = original; }
+        });
+    });
+    // Live password confirmation check
+    var p1 = document.getElementById('id_password1'), p2 = document.getElementById('id_password2');
+    if (p1 && p2) {
+        var note = document.createElement('p');
+        note.className = 'err'; note.setAttribute('role', 'alert'); note.hidden = true;
+        note.textContent = 'Passwords do not match.';
+        p2.closest('.field').appendChild(note);
+        var check = function () { note.hidden = !(p2.value && p1.value !== p2.value); };
+        p1.addEventListener('input', check); p2.addEventListener('input', check);
+    }
+})();
+</script>
+</body>
+</html>

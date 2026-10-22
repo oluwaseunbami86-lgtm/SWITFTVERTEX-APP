@@ -1,0 +1,38 @@
+{% extends "auth/base.html" %}
+{% load auth_extras %}
+{% block title %}Sign in - SwiftVertex Geomatics{% endblock %}
+{% block body %}
+<div class="split">
+    <section class="panel">
+        <div class="panel-inner">
+            {% include "auth/_logo.html" %}
+            <p class="eyebrow">Welcome back</p>
+            <h1>Sign In to Your Account</h1>
+            <p class="lede">Access your projects, maps, and geospatial data anytime, anywhere.</p>
+
+            {% for message in messages %}<div class="notice notice-{{ message.tags }}">{{ message }}</div>{% endfor %}
+            {% if form.non_field_errors %}<div class="notice notice-error">{{ form.non_field_errors.0 }}</div>{% endif %}
+
+            <form method="post" novalidate data-loading-form>
+                {% csrf_token %}
+                {% include "auth/_field.html" with field=form.username icon="mail" %}
+                {% include "auth/_field.html" with field=form.password icon="lock" toggle=True %}
+                <div class="row-between">
+                    <label class="check"><input type="checkbox" name="remember_me" checked> <span>Remember me</span></label>
+                    <a class="link" href="{% url 'password_reset' %}">Forgot password?</a>
+                </div>
+                <input type="hidden" name="next" value="{{ next }}">
+                <button type="submit" class="btn btn-primary" data-loading-text="Signing in&hellip;">Login {% auth_icon 'arrow-right' 18 %}</button>
+            </form>
+
+            <div class="or"><span>OR</span></div>
+            <button type="button" class="btn btn-outline" disabled title="Google sign-in isn't configured yet">{% auth_icon 'google' 20 %} Continue with Google</button>
+
+            <p class="switch">Don't have an account? <a class="link" href="{% url 'signup' %}">Create an account</a></p>
+        </div>
+        <p class="copy">&copy; 2026 SwiftVertex Geomatics Limited. All rights reserved.</p>
+    </section>
+
+    {% include "auth/_hero_signin.html" %}
+</div>
+{% endblock %}

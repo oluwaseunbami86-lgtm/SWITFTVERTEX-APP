@@ -1,0 +1,153 @@
+{% load static dashboard_extras %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SwiftVertex Geomatics{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=profile-avatar-20261021">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+{% if user.is_authenticated %}
+<div class="app-shell" id="appShell">
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <aside class="sidebar">
+        <svg class="sidebar-wave" viewBox="0 0 264 220" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 120 C 60 90, 100 150, 160 120 S 260 90, 264 110 L264 220 L0 220 Z" fill="rgba(255,255,255,0.03)"/>
+            <path d="M0 150 C 70 130, 120 180, 180 150 S 250 130, 264 145 L264 220 L0 220 Z" fill="rgba(255,255,255,0.035)"/>
+        </svg>
+
+        <div class="brand-row">
+            <img class="brand-image" src="{% static 'img/swiftvertex-logo.png' %}" alt="SwiftVertex Geomatics Limited">
+        </div>
+
+        <nav>
+            <a href="{% url 'dashboard:home' %}" class="nav-item {% if request.resolver_match.app_name == 'dashboard' and request.resolver_match.url_name == 'home' %}active{% endif %}">
+                {% icon 'grid' %} Dashboard
+            </a>
+            <a href="{% url 'jobs:list' %}" class="nav-item {% if request.resolver_match.app_name == 'jobs' %}active{% endif %}">
+                {% icon 'briefcase' %} Jobs
+            </a>
+            {% if user.is_superuser or user.profile.role == 'admin' or user.profile.role == 'office_staff' %}
+            <a href="{% url 'clients:list' %}" class="nav-item {% if request.resolver_match.app_name == 'clients' %}active{% endif %}">
+                {% icon 'user' %} Clients
+            </a>
+            {% endif %}
+            <a href="{% url 'documents:list' %}" class="nav-item {% if request.resolver_match.app_name == 'documents' %}active{% endif %}">
+                {% icon 'file-text' %} Documents
+            </a>
+            {% if user.is_superuser or user.profile.role == 'admin' or user.profile.role == 'office_staff' %}
+            <a href="{% url 'reports:home' %}" class="nav-item {% if request.resolver_match.app_name == 'reports' %}active{% endif %}">
+                {% icon 'bar-chart' %} Reports
+            </a>
+            {% endif %}
+            {% if user.is_superuser %}
+            <a href="{% url 'accounts:pending_approvals' %}" class="nav-item {% if request.resolver_match.url_name == 'pending_approvals' or request.resolver_match.url_name == 'approval_action' %}active{% endif %}">
+                {% icon 'users' %} Pending approvals
+                {% if pending_approvals_count %}<span class="badge-count">{{ pending_approvals_count }}</span>{% endif %}
+            </a>
+            <a href="{% url 'accounts:users' %}" class="nav-item {% if request.resolver_match.url_name == 'users' %}active{% endif %}">
+                {% icon 'users' %} Users
+            </a>
+            <a href="{% url 'accounts:audit_log' %}" class="nav-item {% if request.resolver_match.url_name == 'audit_log' %}active{% endif %}">
+                {% icon 'file-text' %} Audit log
+            </a>
+            {% endif %}
+            <a href="{% url 'accounts:my_profile' %}" class="nav-item {% if request.resolver_match.url_name == 'my_profile' %}active{% endif %}">
+                {% icon 'settings' %} Settings
+            </a>
+        </nav>
+
+        <div class="sidebar-spacer"></div>
+
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="sidebar-user-avatar">
+                    {% if user.profile.profile_picture %}
+                        <img src="{{ user.profile.profile_picture.url }}" alt="">
+                    {% else %}
+                        {% icon 'user-solid' 20 %}
+                    {% endif %}
+                </div>
+                <div>
+                    <p class="sidebar-user-name">{{ user.get_full_name|default:user.username }}</p>
+                    <p class="sidebar-user-role">{% if user.is_superuser %}Super Admin{% else %}{{ user.profile.get_role_display }}{% endif %}</p>
+                    <p class="sidebar-user-status"><span class="dot"></span> Online</p>
+                </div>
+            </div>
+            <form method="post" action="{% url 'logout' %}" class="logout-form">
+                {% csrf_token %}
+                <button type="submit" class="link-button">{% icon 'power' %} Logout</button>
+            </form>
+        </div>
+    </aside>
+
+    <div class="shell-main">
+        <header class="topbar">
+            <button type="button" class="topbar-menu-btn" id="sidebarToggle" aria-label="Toggle menu">{% icon 'menu' 22 %}</button>
+            <div class="topbar-search">
+                <form method="get" action="{% url 'dashboard:search' %}">
+                    <span class="leading">{% icon 'search' 16 %}</span>
+                    <input type="text" name="q" placeholder="Search jobs, clients, documents..." value="{{ request.GET.q }}">
+                    <span class="trailing">{% icon 'search' 16 %}</span>
+                </form>
+            </div>
+            <div class="topbar-spacer"></div>
+            <div class="topbar-actions">
+                <button type="button" class="topbar-bell" aria-label="Notifications">
+                    {% icon 'bell' 18 %}
+                    {% if notifications_count %}<span class="badge-count">{{ notifications_count }}</span>{% endif %}
+                </button>
+                <a href="{% url 'accounts:my_profile' %}" class="topbar-user">
+                    <div class="topbar-user-avatar">
+                        {% if user.profile.profile_picture %}
+                            <img src="{{ user.profile.profile_picture.url }}" alt="">
+                        {% else %}
+                            {% icon 'user-solid' 18 %}
+                        {% endif %}
+                    </div>
+                    <div>
+                        <p class="topbar-user-name">{{ user.get_full_name|default:user.username }}</p>
+                        <p class="topbar-user-role">{% if user.is_superuser %}Super Admin{% else %}{{ user.profile.get_role_display }}{% endif %}</p>
+                    </div>
+                    <span class="chev">{% icon 'chevron-down' 16 %}</span>
+                </a>
+            </div>
+        </header>
+
+        <main class="content">
+            <div class="content-inner">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+</div>
+{% else %}
+<main class="content-plain">
+    {% block content_unauth %}{% endblock %}
+</main>
+{% endif %}
+<script>
+(function () {
+    const shell = document.getElementById('appShell');
+    const toggleBtn = document.getElementById('sidebarToggle');
+    const backdrop = document.getElementById('sidebarBackdrop');
+    if (!shell || !toggleBtn) return;
+
+    function closeSidebar() { shell.classList.remove('sidebar-open'); }
+    function toggleSidebar() { shell.classList.toggle('sidebar-open'); }
+
+    toggleBtn.addEventListener('click', toggleSidebar);
+    if (backdrop) backdrop.addEventListener('click', closeSidebar);
+    window.addEventListener('resize', function () {
+        if (window.innerWidth > 900) closeSidebar();
+    });
+})();
+</script>
+</body>
+</html>

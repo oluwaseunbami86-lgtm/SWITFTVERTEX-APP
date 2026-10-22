@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Reports - SurveyCo{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Reports</h1>
+    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+        <a href="{% url 'reports:export_jobs_csv' %}" class="btn btn-primary">Export jobs (CSV)</a>
+        <a href="{% url 'reports:export_jobs_docx' %}" class="btn">Export jobs (Word)</a>
+    </div>
+</div>
+
+<p style="font-size:14px; font-weight:500; margin-bottom:8px;">Jobs by status</p>
+{% if status_breakdown %}
+<table>
+    <thead><tr><th>Status</th><th>Count</th></tr></thead>
+    <tbody>
+        {% for row in status_breakdown %}
+        <tr><td>{{ row.status }}</td><td>{{ row.total }}</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">No jobs yet to report on.</div>
+{% endif %}
+{% endblock %}

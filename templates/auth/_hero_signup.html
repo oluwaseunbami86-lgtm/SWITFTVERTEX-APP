@@ -1,0 +1,16 @@
+{% load auth_extras %}
+<aside class="hero hero-day{% if hero_photo_url %} has-photo{% endif %}"{% if hero_photo_url %} style="--hero-photo:url('{{ hero_photo_url }}')"{% endif %}>
+    {% include "auth/_hero_art.html" %}
+    <nav class="hero-nav" aria-label="Focus areas">Survey <i>/</i> Map <i>/</i> Analyse <i>/</i> Build</nav>
+    <div class="hero-copy">
+        <span class="rule"></span>
+        <h2>Better Maps.<br>Smarter Decisions. <em>Together.</em></h2>
+        <p>Join SwiftVertex Geomatics Limited and be part of a team using technology to shape a smarter, safer and more sustainable tomorrow.</p>
+    </div>
+    <ul class="hero-feats">
+        <li>{% auth_icon 'crosshair' 30 %}<span>High Accuracy<br>Data</span></li>
+        <li>{% auth_icon 'layers' 30 %}<span>Advanced<br>Technology</span></li>
+        <li>{% auth_icon 'shield-check' 30 %}<span>Trusted<br>&amp; Reliable</span></li>
+        <li>{% auth_icon 'globe' 30 %}<span>Geospatial<br>Excellence</span></li>
+    </ul>
+</aside>
