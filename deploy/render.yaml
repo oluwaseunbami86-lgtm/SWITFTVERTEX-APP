@@ -26,6 +26,8 @@ services:
         sync: false                 # your R2 bucket name (keep the bucket PRIVATE - no public access / r2.dev URL)
       - key: AWS_S3_ENDPOINT_URL
         sync: false                 # https://<account-id>.r2.cloudflarestorage.com
+      - key: AWS_S3_REGION_NAME
+        value: auto
       - key: AWS_ACCESS_KEY_ID
         sync: false                 # R2 API token: Object Read & Write, scoped to this one bucket
       - key: AWS_SECRET_ACCESS_KEY
@@ -42,6 +44,13 @@ services:
     startCommand: python manage.py purge_replaced_files
     envVars:
       - fromService: {type: web, name: swiftvertex, envVarKey: DATABASE_URL}
+      - key: USE_S3
+        value: "True"
+      - fromService: {type: web, name: swiftvertex, envVarKey: AWS_STORAGE_BUCKET_NAME}
+      - fromService: {type: web, name: swiftvertex, envVarKey: AWS_S3_ENDPOINT_URL}
+      - fromService: {type: web, name: swiftvertex, envVarKey: AWS_ACCESS_KEY_ID}
+      - fromService: {type: web, name: swiftvertex, envVarKey: AWS_SECRET_ACCESS_KEY}
+      - fromService: {type: web, name: swiftvertex, envVarKey: AWS_S3_REGION_NAME}
   # Weekly: re-read stored files and compare with their recorded checksums. A non-zero
   # exit marks the run FAILED in Render, which is the alert that something is wrong.
   - type: cron
@@ -52,3 +61,10 @@ services:
     startCommand: python manage.py verify_files --limit 500
     envVars:
       - fromService: {type: web, name: swiftvertex, envVarKey: DATABASE_URL}
+      - key: USE_S3
+        value: "True"
+      - fromService: {type: web, name: swiftvertex, envVarKey: AWS_STORAGE_BUCKET_NAME}
+      - fromService: {type: web, name: swiftvertex, envVarKey: AWS_S3_ENDPOINT_URL}
+      - fromService: {type: web, name: swiftvertex, envVarKey: AWS_ACCESS_KEY_ID}
+      - fromService: {type: web, name: swiftvertex, envVarKey: AWS_SECRET_ACCESS_KEY}
+      - fromService: {type: web, name: swiftvertex, envVarKey: AWS_S3_REGION_NAME}

@@ -3,14 +3,24 @@ import logging
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db import IntegrityError, transaction
+from django.db import DatabaseError, IntegrityError, transaction
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
 
 from accounts import permissions as perm
 from audit.models import AuditEvent
 from audit.services import log_event
+from documents import services as document_services
+from documents.services import DocumentError
+from documents.validators import UploadRejected, inspect_upload
+from survey_points.models import SurveyPoint
+from survey_points.services import (
+    MAX_IMPORT_RECORDS,
+    build_import_records,
+    parse_coordinate_file,
+    suggest_header_mapping,
+    validate_survey_point_records,
+)
 
 from . import services
 from .filters import JobFilter
@@ -32,6 +42,39 @@ NOT_SAVED_MESSAGE = "RECORD WAS NOT SAVED - the database refused the change. Not
 def _beacons(job):
     return [{k: str(v) for k, v in row.items()}
             for row in job.survey_points.order_by("beacon_number").values("beacon_number", "northing", "easting", "height")]
+
+
+JOB_DOCUMENTS = (
+    ("plan_copy", "Copy of the Plan", "pdf_report", {"jpg", "jpeg", "png", "pdf"}, 5),
+    ("pillar_request", "Letter of Pillar Request", "other", {"jpg", "jpeg", "png", "pdf"}, 5),
+    ("dwg_file", "DWG File", "drawing", {"dwg", "dxf"}, 10),
+    ("existing_survey_plan", "Copy of Existing Survey plan", "pdf_report", {"jpg", "jpeg", "png", "pdf"}, 5),
+    ("additional_document", "Additional Document", "other", {"jpg", "jpeg", "png", "pdf"}, 5),
+)
+
+
+def _new_job_coordinate_records(uploaded, plan_number):
+    if not uploaded:
+        return []
+    if not uploaded.name.lower().endswith((".csv", ".txt")):
+        raise ValueError("Coordinate imports must be CSV or TXT files.")
+    stage = parse_coordinate_file(uploaded)
+    headers = stage["rows"][0] if stage["mode_guess"] == "columns" else []
+    mapping = suggest_header_mapping(headers)
+    required = {"beacon_number", "easting", "northing", "height"}
+    has_header = required.issubset(mapping)
+    if not has_header:
+        mapping = {"beacon_number": 0, "easting": 1, "northing": 2, "height": 3}
+    records, issues = build_import_records(
+        stage,
+        {"layout": "columns", "mapping": mapping, "has_header": has_header},
+        plan_number,
+    )
+    if issues:
+        raise ValueError("Coordinate import could not be read: " + "; ".join(issue["message"] for issue in issues[:5]))
+    if len(records) > MAX_IMPORT_RECORDS:
+        raise ValueError(f"Coordinate imports are limited to {MAX_IMPORT_RECORDS} records.")
+    return records
 
 
 @login_required
@@ -87,15 +130,31 @@ def job_detail(request, pk):
 @login_required
 def job_create(request):
     perm.require(perm.can_create(request.user))
-    duplicate = None
     if request.method == "POST":
-        batch_import = request.POST.get("post_action") == "batch_import"
         form = JobForm(request.POST, user=request.user)
         formset = BeaconFormSet(request.POST, instance=Job(), prefix="beacons")
         if form.is_valid() and formset.is_valid():
-            beacon_forms = [f for f in formset if f.cleaned_data and not f.cleaned_data.get("DELETE")]
-            if not beacon_forms and not batch_import:
-                messages.error(request, "Add at least one survey beacon before saving the job.")
+            coordinate_records = []
+            prepared_documents = []
+            try:
+                coordinate_records = _new_job_coordinate_records(
+                    request.FILES.get("coordinate_file"), form.cleaned_data["plan_number"]
+                )
+                for field, title, doc_type, extensions, max_mb in JOB_DOCUMENTS:
+                    uploaded = request.FILES.get(field)
+                    if not uploaded:
+                        continue
+                    extension = uploaded.name.rsplit(".", 1)[-1].lower() if "." in uploaded.name else ""
+                    if extension not in extensions:
+                        raise UploadRejected(
+                            f"{title}: choose one of these file types: {', '.join(sorted(extensions))}."
+                        )
+                    info = inspect_upload(uploaded)
+                    if info.size > max_mb * 1024 * 1024:
+                        raise UploadRejected(f"{title}: the maximum file size is {max_mb} MB.")
+                    prepared_documents.append((uploaded, info, title, doc_type))
+            except (ValueError, UploadRejected) as exc:
+                form.add_error(None, str(exc))
             else:
                 try:
                     with transaction.atomic():
@@ -104,9 +163,24 @@ def job_create(request):
                         job.save()
                         formset.instance = job
                         formset.save()
+                        if coordinate_records:
+                            points, issues = validate_survey_point_records(
+                                job, coordinate_records, captured_by=request.user
+                            )
+                            if issues:
+                                raise ValueError(
+                                    "Coordinate import has errors: "
+                                    + "; ".join(
+                                        f"row {issue['row']}: {issue['message']}"
+                                        for issue in issues[:10]
+                                    )
+                                )
+                            SurveyPoint.objects.bulk_create(points, batch_size=500)
                         log_event(user=request.user, action=A.JOB_CREATED, entity_type="job", entity_id=job.pk,
                                   entity_label=job.plan_number, new={**services.snapshot(job), "beacons": _beacons(job)},
                                   description=f"Created job {job.plan_number}", request=request)
+                except ValueError as exc:
+                    form.add_error(None, str(exc))
                 except IntegrityError:
                     log.exception("Job create failed at the database")
                     if Job.all_objects.filter(plan_number__iexact=form.cleaned_data["plan_number"]).exists():
@@ -116,15 +190,25 @@ def job_create(request):
                     else:
                         messages.error(request, NOT_SAVED_MESSAGE)
                 else:
-                    if batch_import:
-                        messages.success(request, f"Job '{job.title}' created. Import its survey beacon coordinates below.")
-                        return redirect(
-                            f"{reverse('survey_points:create', args=[job.pk])}?mode=batch"
+                    failed_documents = []
+                    for uploaded, info, title, doc_type in prepared_documents:
+                        try:
+                            document_services.add_document(
+                                job=job, uploaded=uploaded, info=info, doc_type=doc_type,
+                                title=title, description="", note="", user=request.user, request=request,
+                            )
+                        except (DocumentError, UploadRejected, DatabaseError):
+                            log.exception("Could not attach %s to newly created job %s", title, job.pk)
+                            failed_documents.append(title)
+                    if failed_documents:
+                        messages.error(
+                            request,
+                            f"Job created successfully, but these files could not be uploaded: "
+                            f"{', '.join(failed_documents)}. You can add them from the job page.",
                         )
-                    messages.success(request, f"Job '{job.title}' created with {len(beacon_forms)} beacon(s).")
+                    else:
+                        messages.success(request, f"Job '{job.title}' created successfully.")
                     return redirect("jobs:detail", pk=job.pk)
-        elif "plan_number" in form.errors and form.duplicate_job:
-            messages.error(request, "JOB NUMBER ALREADY EXISTS - the record was not saved.")
     else:
         form = JobForm(user=request.user)
         formset = BeaconFormSet(instance=Job(), prefix="beacons")

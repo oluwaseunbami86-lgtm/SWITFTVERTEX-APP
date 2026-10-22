@@ -1,8 +1,14 @@
+import tempfile
+
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from clients.models import Client
+from documents.models import Document
+from documents.storage import reset_store
+from survey_points.models import SurveyPoint
 
 from .models import Job
 
@@ -51,31 +57,61 @@ class JobTests(TestCase):
         job = Job.objects.first()
         self.assertEqual(job.survey_points.count(), 1)
 
-    def test_create_job_without_beacon_fails(self):
+    def test_create_job_without_beacon_succeeds(self):
         data = self._base_post_data(**{
             "beacons-TOTAL_FORMS": "0",
         })
         response = self.client.post(reverse("jobs:create"), data)
-        self.assertEqual(response.status_code, 200)  # re-renders form with error
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Job.objects.count(), 1)
+        self.assertEqual(Job.objects.first().survey_points.count(), 0)
+
+    def test_new_job_form_has_a_single_final_create_action(self):
+        response = self.client.get(reverse("jobs:create"))
+        self.assertContains(response, 'enctype="multipart/form-data"')
+        self.assertContains(response, 'name="coordinate_file"')
+        self.assertContains(response, 'name="plan_copy"')
+        self.assertContains(response, "Create Job")
+        self.assertNotContains(response, "Save job and batch import coordinates")
         self.assertEqual(Job.objects.count(), 0)
 
-    def test_create_job_can_continue_directly_to_batch_coordinate_import(self):
-        response = self.client.get(reverse("jobs:create"))
-        self.assertContains(response, "Save job and batch import coordinates")
+    def test_create_job_imports_coordinates_and_documents_on_final_submit(self):
+        with tempfile.TemporaryDirectory() as storage_root, override_settings(OBJECT_STORE_ROOT=storage_root):
+            reset_store()
+            try:
+                response = self.client.post(
+                    reverse("jobs:create"),
+                    {
+                        **self._base_post_data(**{"beacons-TOTAL_FORMS": "0"}),
+                        "coordinate_file": SimpleUploadedFile(
+                            "coordinates.csv", b"B2,200.0,100.0,5.0", content_type="text/csv"
+                        ),
+                        "plan_copy": SimpleUploadedFile(
+                            "plan.pdf", b"%PDF-1.7\nplan content", content_type="application/pdf"
+                        ),
+                    },
+                    follow=True,
+                )
 
-        data = self._base_post_data(**{
-            "beacons-TOTAL_FORMS": "0",
-            "post_action": "batch_import",
-        })
-        response = self.client.post(reverse("jobs:create"), data)
+                job = Job.objects.get(plan_number="OD/1001/2026/001")
+                self.assertContains(response, "created successfully")
+                self.assertEqual(SurveyPoint.objects.filter(job=job).count(), 1)
+                self.assertEqual(Document.objects.filter(job=job).count(), 1)
+            finally:
+                reset_store()
 
-        job = Job.objects.get(plan_number="OD/1001/2026/001")
-        batch_import_url = reverse("survey_points:create", args=[job.pk]) + "?mode=batch"
-        self.assertRedirects(response, batch_import_url)
-        self.assertEqual(job.survey_points.count(), 0)
+    def test_invalid_document_does_not_create_job(self):
+        response = self.client.post(
+            reverse("jobs:create"),
+            {
+                **self._base_post_data(),
+                "plan_copy": SimpleUploadedFile("plan.pdf", b"not a pdf", content_type="application/pdf"),
+            },
+        )
 
-        response = self.client.get(batch_import_url)
-        self.assertContains(response, 'data-entry-tab="batch" role="tab" aria-selected="true"')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "FILE CONTENT DOES NOT MATCH")
+        self.assertEqual(Job.objects.count(), 0)
 
     def test_job_list_view(self):
         response = self.client.post(reverse("jobs:create"), self._base_post_data())
@@ -117,6 +153,13 @@ class JobTests(TestCase):
         self.assertContains(response, "Job date")
         self.assertNotContains(response, "Completion date")
         self.assertNotContains(response, "Job date (start)")
+
+    def test_job_form_renders_all_workflow_fields(self):
+        response = self.client.get(reverse("jobs:create"))
+
+        self.assertContains(response, 'name="status"')
+        self.assertContains(response, 'name="assigned_to"')
+        self.assertContains(response, 'name="description"')
 
     def test_batch_coordinate_action_opens_batch_import_tab(self):
         self.client.post(reverse("jobs:create"), self._base_post_data())

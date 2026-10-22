@@ -298,6 +298,18 @@ class StoreCases:
         self.assertEqual(self.stored(), {})
         self.assertEqual(AuditEvent.objects.get(action="document_purged").old_value["job"], "OD/1379/2026/041")
 
+    def test_purge_confirmation_matches_filename_as_displayed(self):
+        self.upload("Plan   One.pdf", PDF, doc_type="pdf_report")
+        doc = Document.objects.get()
+        self.login(self.admin)
+        self.client.post(reverse("documents:delete", args=[doc.pk]))
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(reverse("documents:purge", args=[doc.pk]), {"confirm_text": "DELETE Plan One.pdf"})
+
+        self.assertFalse(Document.objects.filter(pk=doc.pk).exists())
+        self.assertEqual(self.stored(), {})
+
     def test_purging_a_job_removes_its_stored_files(self):
         self.upload("Plan.pdf", PDF, doc_type="pdf_report")
         self.login(self.admin)

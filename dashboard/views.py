@@ -3,7 +3,8 @@ from datetime import date
 from django.utils import timezone
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q
+from django.core.cache import cache
+from django.db.models import Count, Q
 from django.shortcuts import render
 from django.utils.dateparse import parse_date
 
@@ -14,6 +15,8 @@ from clients.models import Client
 from documents.models import Document
 from jobs.models import Job
 from survey_points.models import SurveyPoint
+
+DASHBOARD_CACHE_SECONDS = 60  # 0 = no caching
 
 QUARTER_LABELS = {1: "Q1 (Jan - Mar)", 2: "Q2 (Apr - Jun)", 3: "Q3 (Jul - Sep)", 4: "Q4 (Oct - Dec)"}
 QUARTER_SHORT = {1: "Q1", 2: "Q2", 3: "Q3", 4: "Q4"}
@@ -77,15 +80,7 @@ def _dashboard(request):
     def stat(current_count, previous_count):
         return {"value": current_count, "change": _pct_change(current_count, previous_count)}
 
-    total_jobs_now = base_jobs.filter(created_at__date__lte=q_end).count()
-    total_jobs_prev = base_jobs.filter(created_at__date__lte=prev_q_end).count()
-
-    active_jobs_now = base_jobs.exclude(status=Job.Status.COMPLETED).filter(created_at__date__lte=q_end).count()
-    active_jobs_prev = base_jobs.exclude(status=Job.Status.COMPLETED).filter(created_at__date__lte=prev_q_end).count()
-
-    completed_jobs_now = base_jobs.filter(status=Job.Status.COMPLETED, updated_at__date__lte=q_end).count()
-    completed_jobs_prev = base_jobs.filter(status=Job.Status.COMPLETED, updated_at__date__lte=prev_q_end).count()
-
+    # --- Client queryset (same permission rules as before) ---
     client_query = Client.objects.all()
     role = role_of(request.user)
     if role == Profile.Role.SURVEYOR:
@@ -93,13 +88,11 @@ def _dashboard(request):
     elif role == Profile.Role.CLIENT_VIEWER:
         profile = request.user.profile
         client_query = client_query.filter(pk=profile.client_id) if profile.client_id else client_query.none()
-    clients_now = client_query.filter(created_at__date__lte=q_end).count()
-    clients_prev = client_query.filter(created_at__date__lte=prev_q_end).count()
 
-    documents_now = Document.objects.filter(job__in=base_jobs, uploaded_at__date__lte=q_end).count()
-    documents_prev = Document.objects.filter(job__in=base_jobs, uploaded_at__date__lte=prev_q_end).count()
+    # Year dropdown options: a small window around the data / today.
+    years = list(range(today.year - 2, today.year + 2))
 
-    # --- Job activity chart: 5 quarters ending on the selected quarter ---
+    # Quarters for the chart: 5 quarters ending on the selected quarter
     quarters = []
     y, qtr = selected_year, selected_quarter
     for _ in range(5):
@@ -107,28 +100,71 @@ def _dashboard(request):
         y, qtr = _prev_quarter(y, qtr)
     quarters.reverse()
 
-    chart_labels, chart_values = [], []
-    for qy, qq in quarters:
-        q_start = date(qy, (qq - 1) * 3 + 1, 1)
-        q_end_i = _quarter_end(qy, qq)
-        count = base_jobs.filter(job_date__gte=q_start, job_date__lte=q_end_i).count()
-        chart_labels.append(f"{QUARTER_SHORT[qq]} {qy}")
-        chart_values.append(count)
+    def build_numbers():
+        """Runs only a handful of queries (instead of ~25) and is cached."""
+        done = Q(status=Job.Status.COMPLETED)
 
-    # Year dropdown options: a small window around the data / today.
-    years = list(range(today.year - 2, today.year + 2))
+        # ONE query for every jobs number
+        chart_aggs = {}
+        for i, (qy, qq) in enumerate(quarters):
+            q_start = date(qy, (qq - 1) * 3 + 1, 1)
+            chart_aggs[f"chart_{i}"] = Count(
+                "id", distinct=True,
+                filter=Q(job_date__gte=q_start, job_date__lte=_quarter_end(qy, qq)),
+            )
+        jobs = base_jobs.aggregate(
+            total_now=Count("id", distinct=True, filter=Q(created_at__date__lte=q_end)),
+            total_prev=Count("id", distinct=True, filter=Q(created_at__date__lte=prev_q_end)),
+            active_now=Count("id", distinct=True, filter=~done & Q(created_at__date__lte=q_end)),
+            active_prev=Count("id", distinct=True, filter=~done & Q(created_at__date__lte=prev_q_end)),
+            completed_now=Count("id", distinct=True, filter=done & Q(updated_at__date__lte=q_end)),
+            completed_prev=Count("id", distinct=True, filter=done & Q(updated_at__date__lte=prev_q_end)),
+            **chart_aggs,
+        )
 
-    recent_jobs = []
-    for job in base_jobs.select_related("client").order_by("-created_at")[:5]:
-        recent_jobs.append({
-            "plan_number": job.plan_number,
-            "title": job.title,
-            "client": job.client.name if job.client else "—",
-            "location": job.job_address,
-            "date": job.job_date,
-            "status": job.status,
-            "status_display": job.get_status_display(),
-        })
+        # ONE query for clients
+        clients = client_query.aggregate(
+            now=Count("id", filter=Q(created_at__date__lte=q_end)),
+            prev=Count("id", filter=Q(created_at__date__lte=prev_q_end)),
+            total=Count("id"),
+        )
+
+        # ONE query for documents
+        docs = Document.objects.filter(job__in=base_jobs).aggregate(
+            now=Count("id", filter=Q(uploaded_at__date__lte=q_end)),
+            prev=Count("id", filter=Q(uploaded_at__date__lte=prev_q_end)),
+            total=Count("id"),
+        )
+
+        recent = []
+        for job in base_jobs.select_related("client").order_by("-created_at")[:5]:
+            recent.append({
+                "plan_number": job.plan_number,
+                "title": job.title,
+                "client": job.client.name if job.client else "\u2014",
+                "location": job.job_address,
+                "date": job.job_date,
+                "status": job.status,
+                "status_display": job.get_status_display(),
+            })
+
+        return {
+            "jobs": jobs,
+            "clients": clients,
+            "docs": docs,
+            "recent_jobs": recent,
+            "survey_points": SurveyPoint.objects.filter(job__in=base_jobs).count(),
+        }
+
+    # Cached per user + selected quarter/year. Numbers can be up to
+    # DASHBOARD_CACHE_SECONDS old. Set it to 0 to disable caching.
+    cache_key = f"dash:{request.user.pk}:{selected_year}:{selected_quarter}"
+    data = cache.get_or_set(cache_key, build_numbers, DASHBOARD_CACHE_SECONDS)
+    jobs, clients, docs = data["jobs"], data["clients"], data["docs"]
+
+    chart_labels = [f"{QUARTER_SHORT[qq]} {qy}" for qy, qq in quarters]
+    chart_values = [jobs[f"chart_{i}"] for i in range(len(quarters))]
+    recent_jobs = data["recent_jobs"]
 
     hour = timezone.localtime().hour
     if hour < 12:
@@ -147,11 +183,11 @@ def _dashboard(request):
         "year_choices": years,
         "prev_quarter_label": f"{QUARTER_SHORT[prev_quarter]} {prev_year}",
 
-        "total_jobs": stat(total_jobs_now, total_jobs_prev),
-        "active_jobs": stat(active_jobs_now, active_jobs_prev),
-        "completed_jobs": stat(completed_jobs_now, completed_jobs_prev),
-        "total_clients": stat(clients_now, clients_prev),
-        "total_documents": stat(documents_now, documents_prev),
+        "total_jobs": stat(jobs["total_now"], jobs["total_prev"]),
+        "active_jobs": stat(jobs["active_now"], jobs["active_prev"]),
+        "completed_jobs": stat(jobs["completed_now"], jobs["completed_prev"]),
+        "total_clients": stat(clients["now"], clients["prev"]),
+        "total_documents": stat(docs["now"], docs["prev"]),
 
         "chart_labels": json.dumps(chart_labels),
         "chart_values": json.dumps(chart_values),
@@ -159,10 +195,10 @@ def _dashboard(request):
         "recent_jobs": recent_jobs,
 
         # kept for any other templates/backwards compat
-        "active_jobs_count": active_jobs_now,
-        "clients_count": client_query.count(),
-        "survey_points_count": SurveyPoint.objects.filter(job__in=base_jobs).count(),
-        "documents_count": Document.objects.filter(job__in=base_jobs).count(),
+        "active_jobs_count": jobs["active_now"],
+        "clients_count": clients["total"],
+        "survey_points_count": data["survey_points"],
+        "documents_count": docs["total"],
     }
     return render(request, "dashboard/dashboard.html", context)
 
@@ -197,3 +233,6 @@ def search(request):
         )
 
     return render(request, "dashboard/search_results.html", {"query": query, "jobs": jobs})
+
+
+

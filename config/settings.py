@@ -8,7 +8,9 @@ S3/R2-compatible storage automatically when the relevant env vars are set.
 """
 
 import sys
+import warnings
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 import environ
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,6 +23,7 @@ environ.Env.read_env(BASE_DIR / ".env")
 
 SECRET_KEY = env("SECRET_KEY", default="dev-insecure-secret-key-change-me")
 DEBUG = env("DEBUG")
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["127.0.0.1", "localhost"])
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
@@ -139,11 +142,24 @@ USE_S3 = env("USE_S3")
 
 if USE_S3:
     STORAGES["default"] = {"BACKEND": "storages.backends.s3.S3Storage"}
-    AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
-    AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
-    AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
-    AWS_S3_ENDPOINT_URL = env("AWS_S3_ENDPOINT_URL", default=None)
+    AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID").strip()
+    AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY").strip()
+    AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME").strip()
+    AWS_S3_ENDPOINT_URL = env("AWS_S3_ENDPOINT_URL").strip().rstrip("/")
+    endpoint = urlsplit(AWS_S3_ENDPOINT_URL)
+    if endpoint.path == f"/{AWS_STORAGE_BUCKET_NAME}":
+        AWS_S3_ENDPOINT_URL = urlunsplit((endpoint.scheme, endpoint.netloc, "", "", ""))
+        warnings.warn(
+            "AWS_S3_ENDPOINT_URL included the bucket path; using the account-level R2 endpoint instead.",
+            RuntimeWarning,
+        )
+    elif endpoint.path:
+        from django.core.exceptions import ImproperlyConfigured
+
+        raise ImproperlyConfigured("AWS_S3_ENDPOINT_URL must be the account-level endpoint without a bucket path.")
     AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME", default="auto")
+    AWS_S3_SIGNATURE_VERSION = "s3v4"
+    AWS_S3_ADDRESSING_STYLE = "path"
     AWS_S3_FILE_OVERWRITE = False
     AWS_DEFAULT_ACL = None
     AWS_QUERYSTRING_AUTH = True  # never hand out permanent public URLs
@@ -192,3 +208,10 @@ MAX_UPLOAD_MB = env.int("MAX_UPLOAD_MB", default=250)
 VERIFY_READBACK_MAX_MB = env.int("VERIFY_READBACK_MAX_MB", default=100)  # re-read + re-hash right after upload up to this size
 OVERWRITE_RETENTION_DAYS = env.int("OVERWRITE_RETENTION_DAYS", default=30)
 DOWNLOAD_URL_SECONDS = env.int("DOWNLOAD_URL_SECONDS", default=300)
+SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+
+LOGGING = {
+    "version": 1,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "loggers": {"django.db.backends": {"handlers": ["console"], "level": "DEBUG"}},
+}

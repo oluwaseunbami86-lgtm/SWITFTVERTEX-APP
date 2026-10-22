@@ -9,13 +9,9 @@
                     <span aria-hidden="true">←</span> Back to jobs
                 </a>
             </div>
-            <div class="job-form-top-actions">
-                <button type="button" class="btn btn-ghost btn-small">Save Draft</button>
-                <button type="submit" form="job-form" class="btn btn-primary btn-small">Create Job</button>
-            </div>
         </div>
 
-        <form method="post" id="job-form" class="job-form-shell">
+        <form method="post" enctype="multipart/form-data" id="job-form" class="job-form-shell">
             {% csrf_token %}
             {{ form.expected_version }}
             {% if form.non_field_errors %}<div class="alert alert-error">{{ form.non_field_errors }}</div>{% endif %}
@@ -88,6 +84,21 @@
                         </div>
                         {% if form.reference_number.errors %}<div class="errorlist">{{ form.reference_number.errors }}</div>{% endif %}
                     </div>
+                    <div class="form-field">
+                        {{ form.status.label_tag }}
+                        {{ form.status }}
+                        {% if form.status.errors %}<div class="errorlist">{{ form.status.errors }}</div>{% endif %}
+                    </div>
+                    <div class="form-field">
+                        {{ form.assigned_to.label_tag }}
+                        {{ form.assigned_to }}
+                        {% if form.assigned_to.errors %}<div class="errorlist">{{ form.assigned_to.errors }}</div>{% endif %}
+                    </div>
+                    <div class="form-field form-field-wide">
+                        {{ form.description.label_tag }}
+                        {{ form.description }}
+                        {% if form.description.errors %}<div class="errorlist">{{ form.description.errors }}</div>{% endif %}
+                    </div>
                 </div>
             </section>
 
@@ -129,9 +140,9 @@
                 {% if formset.non_form_errors %}<div class="alert alert-error">{{ formset.non_form_errors }}</div>{% endif %}
 
                 <div class="beacon-import-card">
-                    <p><strong>Have a file of coordinates?</strong></p>
-                    <p class="muted">Save this job and continue directly to the batch coordinate import. You can import a CSV or TXT file there.</p>
-                    <button type="submit" name="post_action" value="batch_import" class="btn btn-primary">Save job and batch import coordinates</button>
+                    <p><strong>Import coordinates from a file</strong></p>
+                    <p class="muted">Choose a CSV or TXT file to import with this job. Use columns for point number, easting, northing, and height, in that order, or include recognizable column headers. The coordinates are checked when you create the job.</p>
+                    <input type="file" name="coordinate_file" accept=".csv,.txt,text/csv,text/plain">
                 </div>
 
                 <div class="beacon-toolbar">
@@ -192,32 +203,36 @@
                 </div>
                 <div class="document-grid">
                     <div class="document-card">
-                        <label>Copy of the Plan</label>
+                        <label for="id_plan_copy">Copy of the Plan</label>
                         <small>JPG, JPEG, PNG, PDF · Max 5 MB · Optional</small>
-                        <input type="file" accept=".jpg,.jpeg,.png,.pdf" />
+                        <input type="file" id="id_plan_copy" name="plan_copy" accept=".jpg,.jpeg,.png,.pdf" />
                     </div>
                     <div class="document-card">
-                        <label>Letter of Pillar Request</label>
+                        <label for="id_pillar_request">Letter of Pillar Request</label>
                         <small>JPG, JPEG, PNG, PDF · Max 5 MB · Optional</small>
-                        <input type="file" accept=".jpg,.jpeg,.png,.pdf" />
+                        <input type="file" id="id_pillar_request" name="pillar_request" accept=".jpg,.jpeg,.png,.pdf" />
                     </div>
                     <div class="document-card">
-                        <label>DWG File</label>
+                        <label for="id_dwg_file">DWG File</label>
                         <small>DWG, DXF · Max 10 MB · Optional</small>
-                        <input type="file" accept=".dwg,.dxf" />
+                        <input type="file" id="id_dwg_file" name="dwg_file" accept=".dwg,.dxf" />
                     </div>
                     <div class="document-card">
-                        <label>Copy of Existing Survey plan</label>
+                        <label for="id_existing_survey_plan">Copy of Existing Survey plan</label>
                         <small>JPG, JPEG, PNG, PDF · Max 5 MB · Optional</small>
-                        <input type="file" accept=".jpg,.jpeg,.png,.pdf" />
+                        <input type="file" id="id_existing_survey_plan" name="existing_survey_plan" accept=".jpg,.jpeg,.png,.pdf" />
                     </div>
                     <div class="document-card document-card-wide">
-                        <label>Additional Document</label>
+                        <label for="id_additional_document">Additional Document</label>
                         <small>JPG, JPEG, PNG, PDF · Max 5 MB · Optional</small>
-                        <input type="file" accept=".jpg,.jpeg,.png,.pdf" />
+                        <input type="file" id="id_additional_document" name="additional_document" accept=".jpg,.jpeg,.png,.pdf" />
                     </div>
                 </div>
             </section>
+
+            <div class="actions-row job-form-submit">
+                <button type="submit" class="btn btn-primary">Create Job</button>
+            </div>
         </form>
     </div>
 
@@ -237,7 +252,7 @@
                 <li>Use the correct survey type and job type for accurate processing.</li>
                 <li>Ensure the plan number is unique.</li>
                 <li>Add the client and project to keep your records organised.</li>
-                <li>You can upload supporting documents after creating the job.</li>
+                <li>Review the coordinates and supporting documents before creating the job.</li>
             </ul>
         </div>
 

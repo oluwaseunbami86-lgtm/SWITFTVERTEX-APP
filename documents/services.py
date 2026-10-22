@@ -288,7 +288,7 @@ def purge_document(*, document_pk, user, typed, request=None):
     if doc.lifecycle != Document.Lifecycle.DELETED:
         raise DocumentError("ONLY DELETED DOCUMENTS CAN BE PERMANENTLY DESTROYED.")
     expected = f"DELETE {doc.filename}"
-    if (typed or "").strip() != expected:
+    if " ".join((typed or "").split()) != " ".join(expected.split()):
         raise DocumentError(f"CONFIRMATION DID NOT MATCH - type exactly: {expected}")
     versions = [{"version": v.version_number, "file": v.original_filename, "sha256": v.sha256, "key": v.storage_key}
                 for v in doc.versions.all()]
